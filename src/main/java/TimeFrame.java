@@ -1,104 +1,88 @@
-/* =========================================================================
- * 
- *  Copyright 2011 Matthias Schlachter
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *         http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- *=========================================================================*/
+// Decompiled by Jad v1.5.8g. Copyright 2001 Pavel Kouznetsov.
+// Jad home page: http://www.kpdus.com/jad.html
+// Decompiler options: packimports(3) 
+// Source File Name:   TimeFrame.java
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-//import java.util.Iterator;
-//import java.util.List;
 
-
-public class TimeFrame implements Comparable
+public class TimeFrame
+    implements Comparable
 {
-  public TimeFrame(int index)
-        {
-          frameIndex = index;
-        }
 
-  public TimeFrame(String index)
-        {
-          frameIndex = Integer.parseInt(index);
-        }
+    public TimeFrame(int i)
+    {
+        channels = new ArrayList();
+        frameIndex = i;
+    }
 
-  public void addChannel(int index)
-        {
-          Integer channelIndex = new Integer(index);
-          if(!channels.contains(channelIndex))
-              channels.add(new Integer(index));
-          else
-              System.out.println("channel" + channelIndex.toString() 
-                                 + " already in list!");
-        }
+    public TimeFrame(String s)
+    {
+        channels = new ArrayList();
+        frameIndex = Integer.parseInt(s);
+    }
 
-  public void addChannel(String index)
-        {
-          addChannel(Integer.parseInt(index));
-        }
+    public void addChannel(int i)
+    {
+        Integer integer = new Integer(i);
+        if(!channels.contains(integer))
+            channels.add(new Integer(i));
+        else
+            System.out.println((new StringBuilder()).append("channel").append(integer.toString()).append(" already in list!").toString());
+    }
 
-  public boolean equals(Object obj)
-        {
-          TimeFrame f = (TimeFrame) obj;
-          if(f.frameIndex == frameIndex)
-              return true;
-          return false;
-        }
+    public void addChannel(String s)
+    {
+        addChannel(Integer.parseInt(s));
+    }
 
-  public String toString()
-        {
-          String s = "FrameIdx: " + Integer.toString(frameIndex) + "; ";
-          s = s + "nChannels: " + Integer.toString(channels.size()) + "; ";
-          s = s + "channels: ";
-          for(int i=0;i<channels.size();i++)
-              s = s + Integer.toString(channels.get(i)) + ";";
-      
-          return s;
-        }
+    public boolean equals(Object obj)
+    {
+        TimeFrame timeframe = (TimeFrame)obj;
+        return timeframe.frameIndex == frameIndex;
+    }
 
-  public int getNChannels()
-        {
-          return channels.size();
-        }
+    public String toString()
+    {
+        String s = (new StringBuilder()).append("FrameIdx: ").append(Integer.toString(frameIndex)).append("; ").toString();
+        s = (new StringBuilder()).append(s).append("nChannels: ").append(Integer.toString(channels.size())).append("; ").toString();
+        s = (new StringBuilder()).append(s).append("channels: ").toString();
+        for(int i = 0; i < channels.size(); i++)
+            s = (new StringBuilder()).append(s).append(Integer.toString(((Integer)channels.get(i)).intValue())).append(";").toString();
 
-  public int getFrameIndex()
-        {
-          return frameIndex;
-        }
-    
-  public int[] getChannelIndices()
-        {            
-          Object[] channelsAsArray = channels.toArray();
-          Arrays.sort(channelsAsArray);
-          int[] channelsIdx = new int[channelsAsArray.length];
-          for(int i=0;i<channelsAsArray.length;i++)
-              channelsIdx[i] = ((Integer) channelsAsArray[i]).intValue();
-          return channelsIdx;
-        }
-    
-  public int compareTo(Object obj)
-        {
-          TimeFrame f = (TimeFrame) obj;
-          if(frameIndex<f.frameIndex)
-              return -1;
-          else if(frameIndex>f.frameIndex)
-              return 1;
-          else 
-              return 0;
-        }
-    
-  private final int frameIndex;
-  private final ArrayList<Integer> channels = new ArrayList<Integer>();
+        return s;
+    }
+
+    public int getNChannels()
+    {
+        return channels.size();
+    }
+
+    public int getFrameIndex()
+    {
+        return frameIndex;
+    }
+
+    public int[] getChannelIndices()
+    {
+        Object aobj[] = channels.toArray();
+        Arrays.sort(aobj);
+        int ai[] = new int[aobj.length];
+        for(int i = 0; i < aobj.length; i++)
+            ai[i] = ((Integer)aobj[i]).intValue();
+
+        return ai;
+    }
+
+    public int compareTo(Object obj)
+    {
+        TimeFrame timeframe = (TimeFrame)obj;
+        if(frameIndex < timeframe.frameIndex)
+            return -1;
+        return frameIndex <= timeframe.frameIndex ? 0 : 1;
+    }
+
+    private final int frameIndex;
+    private final ArrayList channels;
 }
