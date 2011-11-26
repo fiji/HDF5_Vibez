@@ -2214,6 +2214,12 @@ public class HDF5_Reader_ implements PlugIn {
 
 		System.out.println("getMinMax()");
 		if (data instanceof byte[]) {
+          // Quick hack: we don't want to scale byte data
+          minmax[0] = 0;
+          minmax[1] = 255;
+          
+/*
+          
 			byte[] tmp = (byte[]) data;
 			minmax[0] = tmp[0];
 			minmax[1] = tmp[0];
@@ -2228,7 +2234,8 @@ public class HDF5_Reader_ implements PlugIn {
 					minmax[0] = val;
 				if (val > minmax[1])
 					minmax[1] = val;
-			}
+                    }
+*/
 		} else if (data instanceof short[]) {
 			short[] tmp = (short[]) data;
 			minmax[0] = tmp[0];
