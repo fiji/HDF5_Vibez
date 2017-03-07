@@ -4,6 +4,8 @@
 // Copyright: GPL v2
 //
 
+package sc.fiji.hdf5;
+
 public class StackToHDF5GroupsMapping
 {
   String uniqueName_;

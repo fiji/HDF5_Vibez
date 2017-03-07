@@ -4,6 +4,8 @@
 // Copyright: GPL v2
 //
 
+package sc.fiji.hdf5;
+
 import ij.ImagePlus;
 import ij.plugin.*;
 import ij.plugin.filter.PlugInFilter;

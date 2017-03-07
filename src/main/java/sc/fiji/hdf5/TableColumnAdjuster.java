@@ -8,6 +8,8 @@
 //  Code based on http://tips4java.wordpress.com/2008/11/10/table-column-adjuster/
 //
 
+package sc.fiji.hdf5;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.beans.*;

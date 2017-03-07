@@ -4,6 +4,8 @@
 // Copyright: GPL v2
 //
 
+package sc.fiji.hdf5;
+
 import ij.plugin.*;
 import ij.gui.GenericDialog;
 import ij.io.OpenDialog;
