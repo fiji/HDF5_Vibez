@@ -35,6 +35,15 @@
 	<developers>
 		<!-- See https://imagej.net/Team -->
 		<developer>
+			<id>kmdouglass</id>
+			<name>Kyle Douglass</name>
+			<roles>
+				<role>lead</role>
+				<role>reviewer</role>
+				<role>support</role>
+			</roles>
+		</developer>
+		<developer>
 			<id>ctrueden</id>
 			<name>Curtis Rueden</name>
 			<url>http://imagej.net/User:Rueden</url>
