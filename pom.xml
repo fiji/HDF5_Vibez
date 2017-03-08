@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+		http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.scijava</groupId>
+		<artifactId>pom-scijava</artifactId>
+		<version>14.0.0</version>
+		<relativePath />
+	</parent>
+
+	<groupId>sc.fiji</groupId>
+	<artifactId>HDF5_Vibez</artifactId>
+	<version>0.1.0-SNAPSHOT</version>
+
+	<name>HDF5 Vibez</name>
+	<description>HDF5 plugin for ImageJ and Fiji.</description>
+	<url>https://imagej.net/HDF5_Vibez</url>
+	<inceptionYear>2011</inceptionYear>
+	<organization>
+		<name>Fiji</name>
+		<url>http://fiji.sc/</url>
+	</organization>
+	<licenses>
+		<license>
+			<name>GNU General Public License v3+</name>
+			<url>http://www.gnu.org/licenses/gpl.html</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
+	<developers>
+		<!-- See https://imagej.net/Team -->
+		<developer>
+			<id>ctrueden</id>
+			<name>Curtis Rueden</name>
+			<url>http://imagej.net/User:Rueden</url>
+			<roles>
+				<role>maintainer</role>
+			</roles>
+		</developer>
+	</developers>
+	<contributors>
+		<contributor>
+			<name>Olaf Ronneberger</name>
+			<roles><role>founder</role></roles>
+		</contributor>
+		<contributor>
+			<name>Matthias Schlachter</name>
+			<roles><role>founder</role></roles>
+		</contributor>
+		<contributor>
+			<name>Kun Liu</name>
+		</contributor>
+	</contributors>
+
+	<mailingLists>
+		<mailingList>
+			<name>ImageJ Forum</name>
+			<archive>http://forum.imagej.net/</archive>
+		</mailingList>
+	</mailingLists>
+
+	<scm>
+		<connection>scm:git:git://github.com/fiji/HDF5_Vibez</connection>
+		<developerConnection>scm:git:git@github.com:fiji/HDF5_Vibez</developerConnection>
+		<tag>HEAD</tag>
+		<url>https://github.com/fiji/HDF5_Vibez</url>
+	</scm>
+	<issueManagement>
+		<system>GitHub Issues</system>
+		<url>https://github.com/fiji/HDF5_Vibez/issues</url>
+	</issueManagement>
+	<ciManagement>
+		<system>Travis CI</system>
+		<url>https://travis-ci.org/fiji/HDF5_Vibez</url>
+	</ciManagement>
+
+	<properties>
+		<license.licenseName>gpl_v2</license.licenseName>
+		<license.copyrightOwners>Fiji developers.</license.copyrightOwners>
+	</properties>
+
+	<repositories>
+		<repository>
+			<id>imagej.public</id>
+			<url>http://maven.imagej.net/content/groups/public</url>
+		</repository>
+	</repositories>
+
+	<dependencies>
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>ij</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.hdfgroup</groupId>
+			<artifactId>hdf-java</artifactId>
+			<version>2.6.1</version>
+		</dependency>
+	</dependencies>
+</project>
