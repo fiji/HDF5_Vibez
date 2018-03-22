@@ -108,6 +108,7 @@ public class HDF5ImageJ
   static ArrayList<DataSetInfo> recursiveGetInfo(IHDF5Reader reader, HDF5LinkInformation link)
   {
     ArrayList<DataSetInfo> dataSets = new ArrayList<DataSetInfo>();
+    recursiveGetInfo(reader, link, dataSets);
     return dataSets;
   }
 
