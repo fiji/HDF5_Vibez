@@ -39,7 +39,6 @@ import ch.systemsx.cisd.base.mdarray.MDFloatArray;
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 import java.awt.HeadlessException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class HDF5ImageJ
@@ -54,14 +53,14 @@ public class HDF5ImageJ
 
   public static ImagePlus hdf5read( String filename, String[] datasets, int nFrames, int nChannels)
   {
-    return loadDataSetsToHyperStack( filename, datasets, nFrames, nChannels);
+    return loadDataSetsToHyperStack( filename, datasets, nFrames, nChannels, false);
   }
 
   public static ImagePlus hdf5read( String filename, String datasetname, String layout)
   {
     String[] dsetNames = new String[1];
     dsetNames[0] = datasetname;
-    return loadCustomLayoutDataSetToHyperStack( filename, datasetname, layout);
+    return loadCustomLayoutDataSetToHyperStack( filename, datasetname, layout, false);
   }
 
   public static void hdf5write( String filename, String datasetname)
@@ -179,9 +178,15 @@ public class HDF5ImageJ
     }
   }
 
+  static ImagePlus loadDataSetsToHyperStack( String filename, String[] dsetNames,
+                                             int nFrames, int nChannels)
+  {
+    return loadDataSetsToHyperStack( filename, dsetNames, nFrames, nChannels, true);
+  }
+
   //-----------------------------------------------------------------------------
    static ImagePlus loadDataSetsToHyperStack( String filename, String[] dsetNames,
-                                            int nFrames, int nChannels)
+                                            int nFrames, int nChannels, boolean show)
   {
     String dsetName = "";
     try
@@ -346,10 +351,13 @@ public class HDF5ImageJ
       }
 
       imp.setC(1);
-      try {
-        imp.show();
+
+      if (show) {
+        try {
+          imp.show();
+        }
+        catch (HeadlessException herr) {}
       }
-      catch (HeadlessException herr) {}
       return imp;
     }
 
@@ -373,11 +381,15 @@ public class HDF5ImageJ
 
   }
 
+  static ImagePlus loadCustomLayoutDataSetToHyperStack( String filename, String dsetName, String layout) {
+    return loadCustomLayoutDataSetToHyperStack(filename, dsetName, layout, true);
+  }
+
   //-----------------------------------------------------------------------------
   //
   // Layout: any order of the letters x,y,z,c,t as string, e.g. "zyx" for a standard volumetric data set
   //
-  static ImagePlus loadCustomLayoutDataSetToHyperStack( String filename, String dsetName, String layout) {
+  static ImagePlus loadCustomLayoutDataSetToHyperStack( String filename, String dsetName, String layout, boolean show) {
     try
     {
       IHDF5ReaderConfigurator conf = HDF5Factory.configureForReading(filename);
@@ -666,10 +678,12 @@ public class HDF5ImageJ
 
       // aqdjust max gray
       imp.setDisplayRange(0,maxGray);
-      try {
-        imp.show();
+      if (show) {
+        try {
+          imp.show();
+        }
+        catch (HeadlessException herr) {}
       }
-      catch (HeadlessException herr) {}
       return imp;
     }
 
