@@ -69,26 +69,31 @@ public class HDF5ImageJ
     saveHyperStack( IJ.getImage(), filename, datasetname, "", "", 0, "replace");
   }
 
-  public static void hdf5write( String filename, String datasetname, boolean replace)
+  public static void hdf5write( ImagePlus imp, String filename, String datasetname)
+  {
+    saveHyperStack( imp, filename, datasetname, "", "", 0, "replace");
+  }
+
+  public static void hdf5write( ImagePlus imp, String filename, String datasetname, boolean replace)
   {
     if (replace) {
-      saveHyperStack(IJ.getImage(), filename, datasetname, "", "", 0, "replace");
+      saveHyperStack( imp, filename, datasetname, "", "", 0, "replace");
     } else {
-      saveHyperStack( IJ.getImage(), filename, datasetname, "", "", 0, "append");
+      saveHyperStack( imp, filename, datasetname, "", "", 0, "append");
     }
   }
 
-  public static void hdf5write( String filename, String datasetname, String formatTime, String formatChannel, int compressionLevel)
+  public static void hdf5write( ImagePlus imp, String filename, String datasetname, String formatTime, String formatChannel, int compressionLevel)
   {
-    saveHyperStack( IJ.getImage(), filename, datasetname, formatTime, formatChannel, compressionLevel, "replace");
+    saveHyperStack( imp, filename, datasetname, formatTime, formatChannel, compressionLevel, "replace");
   }
 
-  public static void hdf5write( String filename, String datasetname, String formatTime, String formatChannel, int compressionLevel, boolean replace)
+  public static void hdf5write( ImagePlus imp, String filename, String datasetname, String formatTime, String formatChannel, int compressionLevel, boolean replace)
   {
     if (replace) {
-      saveHyperStack(IJ.getImage(), filename, datasetname, formatTime, formatChannel, compressionLevel, "replace");
+      saveHyperStack( imp, filename, datasetname, formatTime, formatChannel, compressionLevel, "replace");
     } else {
-      saveHyperStack(IJ.getImage(), filename, datasetname, formatTime, formatChannel, compressionLevel, "append");
+      saveHyperStack( imp, filename, datasetname, formatTime, formatChannel, compressionLevel, "append");
     }
   }
 
