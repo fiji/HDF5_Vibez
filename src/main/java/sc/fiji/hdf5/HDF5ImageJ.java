@@ -27,24 +27,20 @@
 
 package sc.fiji.hdf5;
 
+import ch.systemsx.cisd.hdf5.*;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ImageProcessor;
 import ij.process.ColorProcessor;
-import ch.systemsx.cisd.hdf5.HDF5DataSetInformation;
-import ch.systemsx.cisd.hdf5.HDF5DataTypeInformation;
-import ch.systemsx.cisd.hdf5.HDF5Factory;
-import ch.systemsx.cisd.hdf5.IHDF5Reader;
-import ch.systemsx.cisd.hdf5.IHDF5ReaderConfigurator;
-import ch.systemsx.cisd.hdf5.IHDF5Writer;
-import ch.systemsx.cisd.hdf5.HDF5IntStorageFeatures;
-import ch.systemsx.cisd.hdf5.HDF5FloatStorageFeatures;
 import ch.systemsx.cisd.base.mdarray.MDByteArray;
 import ch.systemsx.cisd.base.mdarray.MDShortArray;
 import ch.systemsx.cisd.base.mdarray.MDFloatArray;
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 import java.awt.HeadlessException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class HDF5ImageJ
 {
@@ -56,11 +52,126 @@ public class HDF5ImageJ
     return loadDataSetsToHyperStack( filename, dsetNames, 1, 1);
   }
 
+  public static ImagePlus hdf5read( String filename, String[] datasets, int nFrames, int nChannels)
+  {
+    return loadDataSetsToHyperStack( filename, datasets, nFrames, nChannels);
+  }
+
+  public static ImagePlus hdf5read( String filename, String datasetname, String layout)
+  {
+    String[] dsetNames = new String[1];
+    dsetNames[0] = datasetname;
+    return loadCustomLayoutDataSetToHyperStack( filename, datasetname, layout);
+  }
+
   public static void hdf5write( String filename, String datasetname)
   {
     saveHyperStack( IJ.getImage(), filename, datasetname, "", "", 0, "replace");
   }
 
+  public static void hdf5write( String filename, String datasetname, boolean replace)
+  {
+    if (replace) {
+      saveHyperStack(IJ.getImage(), filename, datasetname, "", "", 0, "replace");
+    } else {
+      saveHyperStack( IJ.getImage(), filename, datasetname, "", "", 0, "append");
+    }
+  }
+
+  public static void hdf5write( String filename, String datasetname, String formatTime, String formatChannel, int compressionLevel)
+  {
+    saveHyperStack( IJ.getImage(), filename, datasetname, formatTime, formatChannel, compressionLevel, "replace");
+  }
+
+  public static void hdf5write( String filename, String datasetname, String formatTime, String formatChannel, int compressionLevel, boolean replace)
+  {
+    if (replace) {
+      saveHyperStack(IJ.getImage(), filename, datasetname, formatTime, formatChannel, compressionLevel, "replace");
+    } else {
+      saveHyperStack(IJ.getImage(), filename, datasetname, formatTime, formatChannel, compressionLevel, "append");
+    }
+  }
+
+  public static ArrayList<DataSetInfo> hdf5list( String filename)
+  {
+    IHDF5Reader reader = HDF5Factory.openForReading(filename);
+    ArrayList<DataSetInfo> dataSets = recursiveGetInfo( reader, reader.object().getLinkInformation("/"));
+    reader.close();
+    return dataSets;
+  }
+
+  static ArrayList<DataSetInfo> recursiveGetInfo(IHDF5Reader reader, HDF5LinkInformation link)
+  {
+    ArrayList<DataSetInfo> dataSets = new ArrayList<DataSetInfo>();
+    return dataSets;
+  }
+
+  static void recursiveGetInfo(IHDF5Reader reader, HDF5LinkInformation link, ArrayList<DataSetInfo> dataSets)
+  {
+    List<HDF5LinkInformation> members = reader.object().getGroupMemberInformation(link.getPath(), true);
+    //    DefaultMutableTreeNode node = new DefaultMutableTreeNode(link.getName());
+
+    for (HDF5LinkInformation info : members)
+    {
+      IJ.log(info.getPath() + ":" + info.getType());
+      switch (info.getType())
+      {
+        case DATASET:
+          HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(info.getPath());
+          HDF5DataTypeInformation dsType = dsInfo.getTypeInformation();
+
+          String dimText = "";
+          if( dsInfo.getRank() == 0)
+          {
+            dimText ="1";
+          }
+          else
+          {
+            dimText += dsInfo.getDimensions()[0];
+            for( int i = 1; i < dsInfo.getRank(); ++i)
+            {
+              dimText += "x" + dsInfo.getDimensions()[i];
+            }
+          }
+
+
+          String typeText = HDF5ImageJ.dsInfoToTypeString(dsInfo);
+
+          // try to read element_size_um attribute
+          String element_size_um_text = "unknown";
+          try {
+            float[] element_size_um = reader.float32().getArrayAttr(info.getPath(), "element_size_um");
+            element_size_um_text = "" + element_size_um[0] + "x"
+                    + element_size_um[1] + "x" + element_size_um[2];
+
+          }
+          catch (HDF5Exception err) {
+            IJ.log("Warning: Can't read attribute 'element_size_um' from dataset '" + info.getPath() + "':\n"
+                    + err );
+          }
+
+          IJ.log(info.getPath() + ":" + dsInfo);
+
+          dataSets.add( new DataSetInfo( info.getPath(), dimText, typeText,
+                  element_size_um_text));
+
+
+          break;
+        case SOFT_LINK:
+          IJ.log(info.getPath() + "     -> " + info.tryGetSymbolicLinkTarget());
+          //      node.add(new DefaultMutableTreeNode(info.getName() + "     -> " + info.tryGetSymbolicLinkTarget()));
+
+          break;
+        case GROUP:
+          recursiveGetInfo( reader, info);
+          //        node.add( browse(reader,info));
+
+          break;
+        default:
+          break;
+      }
+    }
+  }
 
   //-----------------------------------------------------------------------------
    static ImagePlus loadDataSetsToHyperStack( String filename, String[] dsetNames,
@@ -898,6 +1009,4 @@ public class HDF5ImageJ
     }
     return nameList;
   }
-
-
 }

@@ -79,63 +79,7 @@ import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 
 public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener 
 {
-  class DataSetInfo
-  { 
-    public String path;
-    public String numericSortablePath;
-    public String dimText;
-    public String typeText;
-    public String element_size_um_text;
-    final int numPaddingSize = 10;
-    
-    public DataSetInfo( String p, String d, String t, String e) {
-      setPath(p);
-      dimText = d;
-      typeText = t; 
-      element_size_um_text = e;
-    }
-
-    public void setPath( String p) {
-      path = p;
-      numericSortablePath = "";
-      String num = "";
-      for( int i = 0; i < p.length(); ++i) {
-        if (isNum(p.charAt(i))) {
-          num += p.charAt(i);
-        } else {
-          if (num != "") {
-            for (int j = 0; j < numPaddingSize - num.length(); ++j) {
-              numericSortablePath += "0";
-            }
-            numericSortablePath += num;
-            num = "";
-          }
-          numericSortablePath += p.charAt(i);
-        }
-      }
-      if (num != "") {
-        for (int j = 0; j < numPaddingSize - num.length(); ++j) {
-          numericSortablePath += "0";
-        }
-        numericSortablePath += num;
-      }
-      IJ.log( path);
-      IJ.log( numericSortablePath);
-    }
-
-    private boolean isNum( char c) {
-      return c >= '0' && c <= '9';
-    }
-  }
-
-  class DataSetInfoComparator implements Comparator<DataSetInfo> {
-    public int compare( DataSetInfo a, DataSetInfo b) {
-      return a.numericSortablePath.compareTo( b.numericSortablePath);
-    }
-  }
-
   //  Private Members
-  // 
   private ArrayList<DataSetInfo> dataSets_;
   private JTable pathTable_;
   private String fullFileName_;
@@ -199,7 +143,7 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     reader.close();
 
     // print all dataset infos for debuuging
-    Collections.sort( dataSets_, new DataSetInfoComparator());
+    Collections.sort( dataSets_, DataSetInfo.createComparator());
     IJ.log( "ALL DATASETS:");
     for (DataSetInfo info : dataSets_)
     {
@@ -416,73 +360,8 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
 
   private void recursiveGetInfo(IHDF5Reader reader, HDF5LinkInformation link)
   {
-    List<HDF5LinkInformation> members = reader.object().getGroupMemberInformation(link.getPath(), true);
-    //    DefaultMutableTreeNode node = new DefaultMutableTreeNode(link.getName());
-    
-    for (HDF5LinkInformation info : members)
-    {
-      IJ.log(info.getPath() + ":" + info.getType());
-      switch (info.getType())
-      {
-      case DATASET:
-        HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(info.getPath());
-        HDF5DataTypeInformation dsType = dsInfo.getTypeInformation();
-        
-        String dimText = "";
-        if( dsInfo.getRank() == 0) 
-        {
-          dimText ="1";
-        }
-        else
-        {
-          dimText += dsInfo.getDimensions()[0];
-          for( int i = 1; i < dsInfo.getRank(); ++i)
-          {
-            dimText += "x" + dsInfo.getDimensions()[i];
-          }
-        }
-        
-
-        String typeText = HDF5ImageJ.dsInfoToTypeString(dsInfo);
-          
-        // try to read element_size_um attribute
-        String element_size_um_text = "unknown";
-        try {
-          float[] element_size_um = reader.float32().getArrayAttr(info.getPath(), "element_size_um");
-          element_size_um_text = "" + element_size_um[0] + "x" 
-              + element_size_um[1] + "x" + element_size_um[2];
-          
-        }     
-        catch (HDF5Exception err) {
-          IJ.log("Warning: Can't read attribute 'element_size_um' from dataset '" + info.getPath() + "':\n"
-                 + err );
-        } 
-
-        IJ.log(info.getPath() + ":" + dsInfo);
-
-        dataSets_.add( new DataSetInfo( info.getPath(), dimText, typeText, 
-                                        element_size_um_text));
-        
-        
-        break;
-      case SOFT_LINK:
-        IJ.log(info.getPath() + "     -> " + info.tryGetSymbolicLinkTarget());
-        //      node.add(new DefaultMutableTreeNode(info.getName() + "     -> " + info.tryGetSymbolicLinkTarget()));
-               
-        break;
-      case GROUP:
-        recursiveGetInfo( reader, info);
-        //        node.add( browse(reader,info));
-        
-        break;
-      default:
-        break;
-      }
-    }
-     
+    HDF5ImageJ.recursiveGetInfo(reader, link, dataSets_);
   }
-
-
 
   public void actionPerformed(ActionEvent event) 
   {
