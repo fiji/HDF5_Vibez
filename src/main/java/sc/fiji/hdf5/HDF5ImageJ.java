@@ -168,7 +168,7 @@ public class HDF5ImageJ
 
           break;
         case GROUP:
-          recursiveGetInfo( reader, info);
+          recursiveGetInfo( reader, info, dataSets);
           //        node.add( browse(reader,info));
 
           break;
