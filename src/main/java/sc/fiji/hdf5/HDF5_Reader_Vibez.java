@@ -475,6 +475,48 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
         //        node.add( browse(reader,info));
         
         break;
+
+      // Procedure for DATASET seems to work for EXTERNAL_LINK just fine!
+      case EXTERNAL_LINK:
+        dsInfo = reader.object().getDataSetInformation(info.getPath());
+        dsType = dsInfo.getTypeInformation();
+
+        IJ.log(info.getPath() + ":" + dsInfo);
+        
+        dimText = "";
+        if( dsInfo.getRank() == 0) 
+        {
+          dimText ="1";
+        }
+        else
+        {
+          dimText += dsInfo.getDimensions()[0];
+          for( int i = 1; i < dsInfo.getRank(); ++i)
+          {
+            dimText += "x" + dsInfo.getDimensions()[i];
+          }
+        }
+        
+
+        typeText = HDF5ImageJ.dsInfoToTypeString(dsInfo);
+          
+        // try to read element_size_um attribute
+        element_size_um_text = "unknown";
+        try {
+          float[] element_size_um = reader.float32().getArrayAttr(info.getPath(), "element_size_um");
+          element_size_um_text = "" + element_size_um[0] + "x" 
+              + element_size_um[1] + "x" + element_size_um[2];
+          
+        }     
+        catch (HDF5Exception err) {
+          IJ.log("Warning: Can't read attribute 'element_size_um' from dataset '" + info.getPath() + "':\n"
+                 + err );
+        }
+
+        dataSets_.add( new DataSetInfo( info.getPath(), dimText, typeText, 
+                                        element_size_um_text));
+
+        break;
       default:
         break;
       }
