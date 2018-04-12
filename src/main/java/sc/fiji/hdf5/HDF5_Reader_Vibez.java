@@ -67,6 +67,7 @@ import ch.systemsx.cisd.hdf5.HDF5DataTypeInformation;
 
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.HDF5LinkInformation;
+import ch.systemsx.cisd.hdf5.HDF5ObjectType;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import ch.systemsx.cisd.hdf5.IHDF5ReaderConfigurator;
@@ -421,9 +422,19 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     
     for (HDF5LinkInformation info : members)
     {
-      IJ.log(info.getPath() + ":" + info.getType());
-      switch (info.getType())
+      HDF5ObjectType type = info.getType();
+      IJ.log(info.getPath() + ":" + type);
+      switch (type)
       {
+
+      case EXTERNAL_LINK:
+        // update type to external link type - proceed through switch (no break)
+        // external link target paths are formatted: "EXTERNAL::/path/to/file::/path/to/object"
+        String[] extl_paths = info.tryGetSymbolicLinkTarget().split("::");
+        IHDF5Reader extl_reader = HDF5Factory.openForReading(extl_paths[1]);
+        HDF5LinkInformation extl_target = extl_reader.object().getLinkInformation(extl_paths[2]);
+        type = extl_target.getType();
+
       case DATASET:
         HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(info.getPath());
         HDF5DataTypeInformation dsType = dsInfo.getTypeInformation();
@@ -474,48 +485,6 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
         recursiveGetInfo( reader, info);
         //        node.add( browse(reader,info));
         
-        break;
-
-      // Procedure for DATASET seems to work for EXTERNAL_LINK just fine!
-      case EXTERNAL_LINK:
-        dsInfo = reader.object().getDataSetInformation(info.getPath());
-        dsType = dsInfo.getTypeInformation();
-
-        IJ.log(info.getPath() + ":" + dsInfo);
-        
-        dimText = "";
-        if( dsInfo.getRank() == 0) 
-        {
-          dimText ="1";
-        }
-        else
-        {
-          dimText += dsInfo.getDimensions()[0];
-          for( int i = 1; i < dsInfo.getRank(); ++i)
-          {
-            dimText += "x" + dsInfo.getDimensions()[i];
-          }
-        }
-        
-
-        typeText = HDF5ImageJ.dsInfoToTypeString(dsInfo);
-          
-        // try to read element_size_um attribute
-        element_size_um_text = "unknown";
-        try {
-          float[] element_size_um = reader.float32().getArrayAttr(info.getPath(), "element_size_um");
-          element_size_um_text = "" + element_size_um[0] + "x" 
-              + element_size_um[1] + "x" + element_size_um[2];
-          
-        }     
-        catch (HDF5Exception err) {
-          IJ.log("Warning: Can't read attribute 'element_size_um' from dataset '" + info.getPath() + "':\n"
-                 + err );
-        }
-
-        dataSets_.add( new DataSetInfo( info.getPath(), dimText, typeText, 
-                                        element_size_um_text));
-
         break;
       default:
         break;
