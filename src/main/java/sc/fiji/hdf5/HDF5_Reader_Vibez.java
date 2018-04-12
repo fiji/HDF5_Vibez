@@ -434,6 +434,7 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
         IHDF5Reader extl_reader = HDF5Factory.openForReading(extl_paths[1]);
         HDF5LinkInformation extl_target = extl_reader.object().getLinkInformation(extl_paths[2]);
         type = extl_target.getType();
+        extl_reader.close();
 
       case DATASET:
         HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(info.getPath());
