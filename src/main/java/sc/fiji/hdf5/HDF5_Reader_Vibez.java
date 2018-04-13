@@ -87,13 +87,15 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     public String dimText;
     public String typeText;
     public String element_size_um_text;
+    public String region_reference;
     final int numPaddingSize = 10;
-    
-    public DataSetInfo( String p, String d, String t, String e) {
+
+    public DataSetInfo( String p, String d, String t, String e, String r) {
       setPath(p);
       dimText = d;
       typeText = t; 
       element_size_um_text = e;
+      region_reference = r;
     }
 
     public void setPath( String p) {
@@ -470,11 +472,20 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
                  + err );
         } 
 
+        String region_reference = "unset";
+        try {
+          String regref_name = (info.getPath() + "_CONTAINER_SLICE_REGION").substring(1);
+          region_reference = reader.reference().getAttr("/", regref_name, false);
+        }
+        catch (HDF5Exception err) {
+          IJ.log("Warning: No Region Reference for:\n" + err);
+        }
+
         IJ.log(info.getPath() + ":" + dsInfo);
 
         dataSets_.add( new DataSetInfo( info.getPath(), dimText, typeText, 
-                                        element_size_um_text));
-        
+                                        element_size_um_text,
+                                        region_reference));
         
         break;
       case SOFT_LINK:
