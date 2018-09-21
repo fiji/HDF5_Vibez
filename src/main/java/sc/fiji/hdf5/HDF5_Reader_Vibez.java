@@ -67,6 +67,7 @@ import ch.systemsx.cisd.hdf5.HDF5DataTypeInformation;
 
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.HDF5LinkInformation;
+import ch.systemsx.cisd.hdf5.HDF5ObjectType;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import ch.systemsx.cisd.hdf5.IHDF5ReaderConfigurator;
@@ -87,7 +88,7 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     public String typeText;
     public String element_size_um_text;
     final int numPaddingSize = 10;
-    
+
     public DataSetInfo( String p, String d, String t, String e) {
       setPath(p);
       dimText = d;
@@ -421,9 +422,20 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     
     for (HDF5LinkInformation info : members)
     {
-      IJ.log(info.getPath() + ":" + info.getType());
-      switch (info.getType())
+      HDF5ObjectType type = info.getType();
+      IJ.log(info.getPath() + ":" + type);
+      switch (type)
       {
+
+      case EXTERNAL_LINK:
+        // update type to external link type - proceed through switch (no break)
+        // external link target paths are formatted: "EXTERNAL::/path/to/file::/path/to/object"
+        String[] extl_paths = info.tryGetSymbolicLinkTarget().split("::");
+        IHDF5Reader extl_reader = HDF5Factory.openForReading(extl_paths[1]);
+        HDF5LinkInformation extl_target = extl_reader.object().getLinkInformation(extl_paths[2]);
+        type = extl_target.getType();
+        extl_reader.close();
+
       case DATASET:
         HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(info.getPath());
         HDF5DataTypeInformation dsType = dsInfo.getTypeInformation();
@@ -456,13 +468,12 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
         catch (HDF5Exception err) {
           IJ.log("Warning: Can't read attribute 'element_size_um' from dataset '" + info.getPath() + "':\n"
                  + err );
-        } 
+        }
 
         IJ.log(info.getPath() + ":" + dsInfo);
 
         dataSets_.add( new DataSetInfo( info.getPath(), dimText, typeText, 
                                         element_size_um_text));
-        
         
         break;
       case SOFT_LINK:
