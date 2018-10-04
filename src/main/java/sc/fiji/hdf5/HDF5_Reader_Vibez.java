@@ -27,54 +27,25 @@
 
 package sc.fiji.hdf5;
 
-import ij.CompositeImage;
 import ij.IJ;
-import ij.ImagePlus;
-import ij.ImageStack;
 import ij.Prefs;
-import ij.gui.GenericDialog;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
-import ij.process.ColorProcessor;
-import ij.process.ImageProcessor;
-import ij.process.ShortProcessor;
-import ij.process.ImageStatistics;
-import ij.process.StackStatistics;
-import ij.measure.Measurements;
 
 import java.io.File;
-import java.util.Date;
-import java.util.List;
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Vector;
 
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import javax.swing.*;
-import javax.swing.tree.*;
 import javax.swing.JTable;
-import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.JCheckBox;
-
-
-import ch.systemsx.cisd.hdf5.HDF5DataSetInformation;
-import ch.systemsx.cisd.hdf5.HDF5DataTypeInformation;
-
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.HDF5LinkInformation;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
-import ch.systemsx.cisd.hdf5.IHDF5Writer;
-import ch.systemsx.cisd.hdf5.IHDF5ReaderConfigurator;
-import ch.systemsx.cisd.base.mdarray.MDByteArray;
-import ch.systemsx.cisd.base.mdarray.MDFloatArray;
-import ch.systemsx.cisd.base.mdarray.MDShortArray;
-import ncsa.hdf.hdf5lib.exceptions.HDF5Exception; 
-
 
 
 public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener 

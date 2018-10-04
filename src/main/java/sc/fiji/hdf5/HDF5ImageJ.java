@@ -118,9 +118,18 @@ public class HDF5ImageJ
 
     for (HDF5LinkInformation info : members)
     {
-      IJ.log(info.getPath() + ":" + info.getType());
-      switch (info.getType())
+      HDF5ObjectType type = info.getType();
+      IJ.log(info.getPath() + ":" + type);
+      switch (type)
       {
+        case EXTERNAL_LINK:
+          // update type to external link type - proceed through switch (no break)
+          // external link target paths are formatted: "EXTERNAL::/path/to/file::/path/to/object"
+          String[] extl_paths = info.tryGetSymbolicLinkTarget().split("::");
+          IHDF5Reader extl_reader = HDF5Factory.openForReading(extl_paths[1]);
+          HDF5LinkInformation extl_target = extl_reader.object().getLinkInformation(extl_paths[2]);
+          type = extl_target.getType();
+          extl_reader.close();
         case DATASET:
           HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(info.getPath());
           HDF5DataTypeInformation dsType = dsInfo.getTypeInformation();
