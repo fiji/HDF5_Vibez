@@ -32,12 +32,15 @@
 	<developers>
 		<!-- See https://imagej.net/Team -->
 		<developer>
-			<id>kmdouglass</id>
-			<name>Kyle Douglass</name>
+			<id>rejsmont</id>
+			<name>Radislaw Ejsmont</name>
 			<roles>
 				<role>lead</role>
+				<role>developer</role>
+				<role>debugger</role>
 				<role>reviewer</role>
 				<role>support</role>
+				<role>maintainer</role>
 			</roles>
 		</developer>
 		<developer>
@@ -57,6 +60,10 @@
 		<contributor>
 			<name>Matthias Schlachter</name>
 			<roles><role>founder</role></roles>
+		</contributor>
+		<contributor>
+			<name>Kyle Douglass</name>
+			<properties><id>kmdouglass</id></properties>
 		</contributor>
 		<contributor>
 			<name>Kun Liu</name>
