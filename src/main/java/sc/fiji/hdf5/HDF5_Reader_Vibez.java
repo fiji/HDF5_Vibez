@@ -156,31 +156,38 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     String name = "";
     boolean tryAgain;
     String openMSG = "Open HDF5...";
-    do {
-      tryAgain = false;
-      OpenDialog od;
-      if (directory.equals(""))
-          od = new OpenDialog(openMSG, "");
-      else
-          od = new OpenDialog(openMSG, directory, "");
-      
-      directory = od.getDirectory();
-      name = od.getFileName();
-      if (name == null)
-          return;
-      if (name == "")
-          return;
-      
-      File testFile = new File(directory + name);
-      if (!testFile.exists() || !testFile.canRead())
-          return;
-      
-      if (testFile.isDirectory()) {
-        directory = directory + name;
-        tryAgain = true;
-      }
-    } while (tryAgain);
-    
+
+    if (arg != null && arg.endsWith("hdf")){
+      File theFile = new File(arg);
+      directory = theFile.getParent();
+      if (!directory.endsWith("/")) directory += "/"; 
+      name = theFile.getName();
+    } else {
+        do {
+          tryAgain = false;
+          OpenDialog od;
+          if (directory.equals(""))
+              od = new OpenDialog(openMSG, "");
+          else
+              od = new OpenDialog(openMSG, directory, "");
+          
+          directory = od.getDirectory();
+          name = od.getFileName();
+          if (name == null)
+              return;
+          if (name == "")
+              return;
+          
+          File testFile = new File(directory + name);
+          if (!testFile.exists() || !testFile.canRead())
+              return;
+          
+          if (testFile.isDirectory()) {
+            directory = directory + name;
+            tryAgain = true;
+          }
+        } while (tryAgain);
+  }
 
     // Get All Dataset names
     //
