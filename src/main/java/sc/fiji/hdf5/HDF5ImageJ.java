@@ -27,24 +27,19 @@
 
 package sc.fiji.hdf5;
 
+import ch.systemsx.cisd.hdf5.*;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ImageProcessor;
 import ij.process.ColorProcessor;
-import ch.systemsx.cisd.hdf5.HDF5DataSetInformation;
-import ch.systemsx.cisd.hdf5.HDF5DataTypeInformation;
-import ch.systemsx.cisd.hdf5.HDF5Factory;
-import ch.systemsx.cisd.hdf5.IHDF5Reader;
-import ch.systemsx.cisd.hdf5.IHDF5ReaderConfigurator;
-import ch.systemsx.cisd.hdf5.IHDF5Writer;
-import ch.systemsx.cisd.hdf5.HDF5IntStorageFeatures;
-import ch.systemsx.cisd.hdf5.HDF5FloatStorageFeatures;
 import ch.systemsx.cisd.base.mdarray.MDByteArray;
 import ch.systemsx.cisd.base.mdarray.MDShortArray;
 import ch.systemsx.cisd.base.mdarray.MDFloatArray;
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 import java.awt.HeadlessException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class HDF5ImageJ
 {
@@ -56,15 +51,151 @@ public class HDF5ImageJ
     return loadDataSetsToHyperStack( filename, dsetNames, 1, 1);
   }
 
+  public static ImagePlus hdf5read( String filename, String[] datasets, int nFrames, int nChannels)
+  {
+    return loadDataSetsToHyperStack( filename, datasets, nFrames, nChannels, false);
+  }
+
+  public static ImagePlus hdf5read( String filename, String datasetname, String layout)
+  {
+    String[] dsetNames = new String[1];
+    dsetNames[0] = datasetname;
+    return loadCustomLayoutDataSetToHyperStack( filename, datasetname, layout, false);
+  }
+
   public static void hdf5write( String filename, String datasetname)
   {
     saveHyperStack( IJ.getImage(), filename, datasetname, "", "", 0, "replace");
   }
 
+  public static void hdf5write( ImagePlus imp, String filename, String datasetname)
+  {
+    saveHyperStack( imp, filename, datasetname, "", "", 0, "replace");
+  }
+
+  public static void hdf5write( ImagePlus imp, String filename, String datasetname, boolean replace)
+  {
+    if (replace) {
+      saveHyperStack( imp, filename, datasetname, "", "", 0, "replace");
+    } else {
+      saveHyperStack( imp, filename, datasetname, "", "", 0, "append");
+    }
+  }
+
+  public static void hdf5write( ImagePlus imp, String filename, String datasetname, String formatTime, String formatChannel, int compressionLevel)
+  {
+    saveHyperStack( imp, filename, datasetname, formatTime, formatChannel, compressionLevel, "replace");
+  }
+
+  public static void hdf5write( ImagePlus imp, String filename, String datasetname, String formatTime, String formatChannel, int compressionLevel, boolean replace)
+  {
+    if (replace) {
+      saveHyperStack( imp, filename, datasetname, formatTime, formatChannel, compressionLevel, "replace");
+    } else {
+      saveHyperStack( imp, filename, datasetname, formatTime, formatChannel, compressionLevel, "append");
+    }
+  }
+
+  public static ArrayList<DataSetInfo> hdf5list( String filename)
+  {
+    IHDF5Reader reader = HDF5Factory.openForReading(filename);
+    ArrayList<DataSetInfo> dataSets = recursiveGetInfo( reader, reader.object().getLinkInformation("/"));
+    reader.close();
+    return dataSets;
+  }
+
+  static ArrayList<DataSetInfo> recursiveGetInfo(IHDF5Reader reader, HDF5LinkInformation link)
+  {
+    ArrayList<DataSetInfo> dataSets = new ArrayList<DataSetInfo>();
+    recursiveGetInfo(reader, link, dataSets);
+    return dataSets;
+  }
+
+  static void recursiveGetInfo(IHDF5Reader reader, HDF5LinkInformation link, ArrayList<DataSetInfo> dataSets)
+  {
+    List<HDF5LinkInformation> members = reader.object().getGroupMemberInformation(link.getPath(), true);
+    //    DefaultMutableTreeNode node = new DefaultMutableTreeNode(link.getName());
+
+    for (HDF5LinkInformation info : members)
+    {
+      HDF5ObjectType type = info.getType();
+      IJ.log(info.getPath() + ":" + type);
+      switch (type)
+      {
+        case EXTERNAL_LINK:
+          // update type to external link type - proceed through switch (no break)
+          // external link target paths are formatted: "EXTERNAL::/path/to/file::/path/to/object"
+          String[] extl_paths = info.tryGetSymbolicLinkTarget().split("::");
+          IHDF5Reader extl_reader = HDF5Factory.openForReading(extl_paths[1]);
+          HDF5LinkInformation extl_target = extl_reader.object().getLinkInformation(extl_paths[2]);
+          type = extl_target.getType();
+          extl_reader.close();
+        case DATASET:
+          HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(info.getPath());
+          HDF5DataTypeInformation dsType = dsInfo.getTypeInformation();
+
+          String dimText = "";
+          if( dsInfo.getRank() == 0)
+          {
+            dimText ="1";
+          }
+          else
+          {
+            dimText += dsInfo.getDimensions()[0];
+            for( int i = 1; i < dsInfo.getRank(); ++i)
+            {
+              dimText += "x" + dsInfo.getDimensions()[i];
+            }
+          }
+
+
+          String typeText = HDF5ImageJ.dsInfoToTypeString(dsInfo);
+
+          // try to read element_size_um attribute
+          String element_size_um_text = "unknown";
+          try {
+            float[] element_size_um = reader.float32().getArrayAttr(info.getPath(), "element_size_um");
+            element_size_um_text = "" + element_size_um[0] + "x"
+                    + element_size_um[1] + "x" + element_size_um[2];
+
+          }
+          catch (HDF5Exception err) {
+            IJ.log("Warning: Can't read attribute 'element_size_um' from dataset '" + info.getPath() + "':\n"
+                    + err );
+          }
+
+          IJ.log(info.getPath() + ":" + dsInfo);
+
+          dataSets.add( new DataSetInfo( info.getPath(), dimText, typeText,
+                  element_size_um_text));
+
+
+          break;
+        case SOFT_LINK:
+          IJ.log(info.getPath() + "     -> " + info.tryGetSymbolicLinkTarget());
+          //      node.add(new DefaultMutableTreeNode(info.getName() + "     -> " + info.tryGetSymbolicLinkTarget()));
+
+          break;
+        case GROUP:
+          recursiveGetInfo( reader, info, dataSets);
+          //        node.add( browse(reader,info));
+
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  static ImagePlus loadDataSetsToHyperStack( String filename, String[] dsetNames,
+                                             int nFrames, int nChannels)
+  {
+    return loadDataSetsToHyperStack( filename, dsetNames, nFrames, nChannels, true);
+  }
 
   //-----------------------------------------------------------------------------
    static ImagePlus loadDataSetsToHyperStack( String filename, String[] dsetNames,
-                                            int nFrames, int nChannels)
+                                            int nFrames, int nChannels, boolean show)
   {
     String dsetName = "";
     try
@@ -229,10 +360,13 @@ public class HDF5ImageJ
       }
 
       imp.setC(1);
-      try {
-        imp.show();
+
+      if (show) {
+        try {
+          imp.show();
+        }
+        catch (HeadlessException herr) {}
       }
-      catch (HeadlessException herr) {}
       return imp;
     }
 
@@ -256,11 +390,15 @@ public class HDF5ImageJ
 
   }
 
+  static ImagePlus loadCustomLayoutDataSetToHyperStack( String filename, String dsetName, String layout) {
+    return loadCustomLayoutDataSetToHyperStack(filename, dsetName, layout, true);
+  }
+
   //-----------------------------------------------------------------------------
   //
   // Layout: any order of the letters x,y,z,c,t as string, e.g. "zyx" for a standard volumetric data set
   //
-  static ImagePlus loadCustomLayoutDataSetToHyperStack( String filename, String dsetName, String layout) {
+  static ImagePlus loadCustomLayoutDataSetToHyperStack( String filename, String dsetName, String layout, boolean show) {
     try
     {
       IHDF5ReaderConfigurator conf = HDF5Factory.configureForReading(filename);
@@ -549,10 +687,12 @@ public class HDF5ImageJ
 
       // aqdjust max gray
       imp.setDisplayRange(0,maxGray);
-      try {
-        imp.show();
+      if (show) {
+        try {
+          imp.show();
+        }
+        catch (HeadlessException herr) {}
       }
-      catch (HeadlessException herr) {}
       return imp;
     }
 
@@ -898,6 +1038,4 @@ public class HDF5ImageJ
     }
     return nameList;
   }
-
-
 }
