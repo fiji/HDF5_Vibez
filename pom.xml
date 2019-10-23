@@ -93,6 +93,8 @@
 	</ciManagement>
 
 	<properties>
+		<package-name>sc.fiji.hdf5</package-name>
+
 		<license.licenseName>gpl_v2</license.licenseName>
 		<license.copyrightOwners>Fiji developers.</license.copyrightOwners>
 
