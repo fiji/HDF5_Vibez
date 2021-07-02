@@ -1,6 +1,6 @@
 # HDF5 Plugin for ImageJ and Fiji
 
-[![](https://travis-ci.org/fiji/HDF5_Vibez.svg?branch=master)](https://travis-ci.org/fiji/HDF5_Vibez)
+[![](https://github.com/fiji/HDF5_Vibez/actions/workflows/build-main.yml/badge.svg)](https://github.com/fiji/HDF5_Vibez/actions/workflows/build-main.yml)
 
 This plugin is an HDF5 reader/writer plugin for ImageJ and Fiji. It is a continuation of the [original code by Olaf Ronneberger](http://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/hdf5.html) and others.
 
