@@ -78,7 +78,7 @@
 	</mailingLists>
 
 	<scm>
-		<connection>scm:git:git://github.com/fiji/HDF5_Vibez</connection>
+		<connection>scm:git:https://github.com/fiji/HDF5_Vibez</connection>
 		<developerConnection>scm:git:git@github.com:fiji/HDF5_Vibez</developerConnection>
 		<tag>HEAD</tag>
 		<url>https://github.com/fiji/HDF5_Vibez</url>
