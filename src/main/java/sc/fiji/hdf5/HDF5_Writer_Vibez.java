@@ -73,7 +73,7 @@ import javax.swing.table.TableModel;
 import javax.swing.text.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 
-import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
+import hdf.hdf5lib.exceptions.HDF5Exception;
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import ch.systemsx.cisd.hdf5.HDF5IntStorageFeatures;
