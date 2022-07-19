@@ -37,9 +37,15 @@ import ch.systemsx.cisd.base.mdarray.MDByteArray;
 import ch.systemsx.cisd.base.mdarray.MDShortArray;
 import ch.systemsx.cisd.base.mdarray.MDFloatArray;
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
+import org.apache.commons.lang.NotImplementedException;
+
 import java.awt.HeadlessException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 public class HDF5ImageJ
 {
@@ -347,6 +353,25 @@ public class HDF5ImageJ
             for (int i = 0; i < data.length; ++i) {
               if (data[i] > maxGray) maxGray = data[i];
             }
+          } else if (typeText.equals( "int32")) {
+            int[] rawdata_asflat = reader.int32().readMDArray(dsetName).getAsFlatArray();
+            float[] rawdata_asfloat = new float[rawdata_asflat.length];
+            for (int i = 0; i < rawdata_asfloat.length; i++)
+            {
+              rawdata_asfloat[i] = (float) rawdata_asflat[i];
+            }
+            for( int lev = 0; lev < nLevels; ++lev) {
+              ImageProcessor ip = imp.getStack().getProcessor( imp.getStackIndex(
+                      channel+1, lev+1, frame+1));
+
+              System.arraycopy(rawdata_asfloat, lev * sliceSize,
+                  (float[]) ip.getPixels(), 0,
+                  sliceSize);
+            }
+            for (int i = 0; i < rawdata_asfloat.length; ++i)
+            {
+              if (rawdata_asfloat[i] > maxGray) maxGray = rawdata_asfloat[i];
+            }
           }
         }
       }
@@ -372,12 +397,16 @@ public class HDF5ImageJ
 
     catch (HDF5Exception err)
     {
+
+      IJ.log(Arrays.toString(err.getStackTrace()));
+
       IJ.error("Error while opening '" + filename
                + "', dataset '" + dsetName + "':\n"
                + err);
     }
     catch (Exception err)
     {
+      IJ.log(Arrays.toString(err.getStackTrace()));
       IJ.error("Error while opening '" + filename
                + "', dataset '" + dsetName + "':\n"
                + err);
@@ -588,6 +617,40 @@ public class HDF5ImageJ
                     + channel * channelToChannelOffset
                     + lev * levelToLevelOffset
                     + row * rowToRowOffset;
+                for( int col = 0; col < nCols; ++col) {
+                  trgData[trgOffset] = rawdata[srcOffset];
+                  ++trgOffset;
+                  srcOffset += colToColOffset;
+                }
+              }
+            }
+          }
+        }
+        for (int i = 0; i < rawdata.length; ++i) {
+          if (rawdata[i] > maxGray) maxGray = rawdata[i];
+        }
+      }
+      else if (typeText.equals("int32")) {
+        int[] rawdata_ints = reader.int32().readMDArray(dsetName).getAsFlatArray();
+        float[] rawdata = new float[rawdata_ints.length];
+        for (int i = 0; i < rawdata_ints.length; i++)
+        {
+          rawdata[i]= (float)rawdata_ints[i];
+        }
+
+        for( int frame = 0; frame < nFrames; ++frame) {
+          for( int channel = 0; channel < nChannels; ++channel) {
+            for( int lev = 0; lev < nLevels; ++lev) {
+              ImageProcessor ip = imp.getStack().getProcessor( imp.getStackIndex(
+                  channel+1, lev+1, frame+1));
+              for( int row = 0; row < nRows; ++row) {
+                float[] trgData = (float[])ip.getPixels();
+                int trgOffset = row * nCols;
+                int srcOffset =
+                    frame * frameToFrameOffset
+                        + channel * channelToChannelOffset
+                        + lev * levelToLevelOffset
+                        + row * rowToRowOffset;
                 for( int col = 0; col < nCols; ++col) {
                   trgData[trgOffset] = rawdata[srcOffset];
                   ++trgOffset;
@@ -996,6 +1059,8 @@ public class HDF5ImageJ
       nBits = 16;
     } else if (type.equals("float32") || type.equals("float64")) {
       nBits = 32;
+    } else if (type.equals("int32")) {
+      nBits = 32; // we will cast to 32 bit floats
     } else {
       IJ.error("Type '" + type + "' Not handled yet!");
     }
