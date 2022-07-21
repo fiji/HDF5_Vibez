@@ -193,6 +193,108 @@ public class HDF5ImageJ
     return loadDataSetsToHyperStack( filename, dsetNames, nFrames, nChannels, true);
   }
 
+  static ImagePlus loadDataSetsToVirtualStack(String filename, String[] dsetNames)
+  {
+    boolean show = true;
+    String dsetName = "";
+    try
+    {
+      IHDF5ReaderConfigurator conf = HDF5Factory.configureForReading(filename);
+      conf.performNumericConversions();
+      IHDF5Reader reader = conf.reader();
+      ImagePlus imp = null;
+      int rank = 0;
+      int nLevels = 0;
+      int nRows = 0;
+      int nCols = 0;
+      boolean isRGB = false;
+      int nBits = 0;
+      double maxGray = 1;
+      String typeText = "";
+      // load data set
+      //
+      dsetName = dsetNames[0];
+      IJ.showStatus("Loading " + dsetName);
+      HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(dsetName);
+      float[] element_size_um = {1, 1, 1};
+      try
+      {
+        element_size_um = reader.float32().getArrayAttr(dsetName, "element_size_um");
+      } catch (HDF5Exception err)
+      {
+        IJ.log("Warning: Can't read attribute 'element_size_um' from file '" + filename
+            + "', dataset '" + dsetName + "':\n"
+            + err + "\n"
+            + "Assuming element size of 1 x 1 x 1 um^3");
+      }
+
+      rank = dsInfo.getRank();
+      typeText = dsInfoToTypeString(dsInfo);
+      if (rank == 2)
+      {
+        nLevels = 1;
+        nRows = (int) dsInfo.getDimensions()[0];
+        nCols = (int) dsInfo.getDimensions()[1];
+      } else if (rank == 3)
+      {
+        nLevels = (int) dsInfo.getDimensions()[0];
+        nRows = (int) dsInfo.getDimensions()[1];
+        nCols = (int) dsInfo.getDimensions()[2];
+        if (typeText.equals("uint8") && nCols == 3)
+        {
+          nLevels = 1;
+          nRows = (int) dsInfo.getDimensions()[0];
+          nCols = (int) dsInfo.getDimensions()[1];
+          isRGB = true;
+        }
+      } else if (rank == 4 && typeText.equals("uint8"))
+      {
+        nLevels = (int) dsInfo.getDimensions()[0];
+        nRows = (int) dsInfo.getDimensions()[1];
+        nCols = (int) dsInfo.getDimensions()[2];
+        isRGB = true;
+      } else
+      {
+        IJ.error(dsetName + ": rank " + rank + " of type " + typeText + " not supported (yet)");
+        return null;
+      }
+
+      ImageStack stack = new HDF5VirtualStack(reader, dsetName, nRows, nCols, nLevels);
+
+      imp = new ImagePlus(filename + ": " + dsetName, stack);
+      imp.getCalibration().pixelDepth = element_size_um[0];
+      imp.getCalibration().pixelHeight = element_size_um[1];
+      imp.getCalibration().pixelWidth = element_size_um[2];
+      imp.getCalibration().setUnit("micrometer");
+      imp.setDisplayRange(0, 255);
+
+      imp.setC(1);
+
+      try
+      {
+        imp.show();
+      } catch (HeadlessException ignored)
+      {
+      }
+      return imp;
+    } catch (Exception err)
+    {
+
+      IJ.log(Arrays.toString(err.getStackTrace()));
+
+      IJ.error("Error while opening '" + filename
+          + "', dataset '" + dsetName + "':\n"
+          + err);
+    } catch (OutOfMemoryError o)
+    {
+      IJ.log(Arrays.toString(o.getStackTrace()));
+      IJ.outOfMemory("Load HDF5");
+    }
+    return null;
+
+  }
+
+
   //-----------------------------------------------------------------------------
    static ImagePlus loadDataSetsToHyperStack( String filename, String[] dsetNames,
                                             int nFrames, int nChannels, boolean show)
@@ -601,8 +703,6 @@ public class HDF5ImageJ
           if (rawdata[i] > maxGray) maxGray = rawdata[i];
         }
       }
-
-
 
 
 //         int sliceSize = nCols * nRows;
