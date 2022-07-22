@@ -39,6 +39,7 @@ import ch.systemsx.cisd.base.mdarray.MDFloatArray;
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 import java.awt.HeadlessException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class HDF5ImageJ
