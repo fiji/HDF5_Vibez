@@ -37,15 +37,9 @@ import ch.systemsx.cisd.base.mdarray.MDByteArray;
 import ch.systemsx.cisd.base.mdarray.MDShortArray;
 import ch.systemsx.cisd.base.mdarray.MDFloatArray;
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
-import org.apache.commons.lang.NotImplementedException;
-
 import java.awt.HeadlessException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-
-import static java.lang.Math.max;
-import static java.lang.Math.min;
 
 public class HDF5ImageJ
 {
