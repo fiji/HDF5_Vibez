@@ -259,8 +259,9 @@ public class HDF5ImageJ
         IJ.error(dsetName + ": rank " + rank + " of type " + typeText + " not supported (yet)");
         return null;
       }
+      typeText = dsInfoToTypeString(dsInfo);
 
-      ImageStack stack = new HDF5VirtualStack(reader, dsetName, nRows, nCols, nLevels);
+      ImageStack stack = new HDF5VirtualStack(reader, dsetName, nRows, nCols, nLevels, isRGB, typeText);
 
       imp = new ImagePlus(filename + ": " + dsetName, stack);
       imp.getCalibration().pixelDepth = element_size_um[0];
