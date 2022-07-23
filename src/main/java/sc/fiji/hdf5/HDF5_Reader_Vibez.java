@@ -392,8 +392,14 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
         String dsetLayout =  dsetLayoutTextField_.getText();
         Prefs.set("hdf5readervibez.dsetLayout", dsetLayout);
 
-        HDF5ImageJ.loadCustomLayoutDataSetToHyperStack( fullFileName_, dataSets_.get(i).path,
-                                                        dsetLayout);
+        if (useVirtualStack_.isSelected())
+        {
+          HDF5ImageJ.loadCustomLayoutDataSetToVirtualStack(fullFileName_, dataSets_.get(i).path, dsetLayout);
+        } else
+        {
+          HDF5ImageJ.loadCustomLayoutDataSetToHyperStack( fullFileName_, dataSets_.get(i).path,
+              dsetLayout);
+        }
       }
 
     }

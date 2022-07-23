@@ -17,11 +17,11 @@ import java.util.Arrays;
 
 public class HDF5VirtualStack extends VirtualStack
 {
-  private IHDF5Reader reader;
-  private String dsetName;
-  private int nRows, nCols, nLevels;
-  private String typeText;
-  private boolean isRGB;
+  protected IHDF5Reader reader;
+  protected String dsetName;
+  protected int nRows, nCols, nLevels;
+  protected String typeText;
+  protected boolean isRGB;
 
   public HDF5VirtualStack(IHDF5Reader reader, String dsetName, int nRows, int nCols, int nLevels, boolean isRGB, String typeText)
   {
@@ -39,17 +39,6 @@ public class HDF5VirtualStack extends VirtualStack
   {
     return this.nLevels;
   }
-
-
-//	if (typestring.equals("float32"))
-//	{
-//		MDFloatArray rawdata = reader.float32().readMDArrayBlock(dsetName, new int[]{1, nRows, nCols}, new long[]{n, 0, 0});
-//		ip = new FloatProcessor(nCols, nRows);
-//
-//		System.arraycopy(rawdata.getAsFlatArray(), 0,
-//				(float[]) ip.getPixels(), 0,
-//				nRows * nCols);
-//	}
 
 
   @Override
@@ -108,3 +97,4 @@ public class HDF5VirtualStack extends VirtualStack
     return ip;
   }
 }
+
