@@ -39,6 +39,7 @@ import ch.systemsx.cisd.base.mdarray.MDFloatArray;
 import hdf.hdf5lib.exceptions.HDF5Exception;
 import java.awt.HeadlessException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class HDF5ImageJ
@@ -192,6 +193,109 @@ public class HDF5ImageJ
   {
     return loadDataSetsToHyperStack( filename, dsetNames, nFrames, nChannels, true);
   }
+
+  static ImagePlus loadDataSetsToVirtualStack(String filename, String[] dsetNames)
+  {
+    boolean show = true;
+    String dsetName = "";
+    try
+    {
+      IHDF5ReaderConfigurator conf = HDF5Factory.configureForReading(filename);
+      conf.performNumericConversions();
+      IHDF5Reader reader = conf.reader();
+      ImagePlus imp = null;
+      int rank = 0;
+      int nLevels = 0;
+      int nRows = 0;
+      int nCols = 0;
+      boolean isRGB = false;
+      int nBits = 0;
+      double maxGray = 1;
+      String typeText = "";
+      // load data set
+      //
+      dsetName = dsetNames[0];
+      IJ.showStatus("Loading " + dsetName);
+      HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(dsetName);
+      float[] element_size_um = {1, 1, 1};
+      try
+      {
+        element_size_um = reader.float32().getArrayAttr(dsetName, "element_size_um");
+      } catch (HDF5Exception err)
+      {
+        IJ.log("Warning: Can't read attribute 'element_size_um' from file '" + filename
+            + "', dataset '" + dsetName + "':\n"
+            + err + "\n"
+            + "Assuming element size of 1 x 1 x 1 um^3");
+      }
+
+      rank = dsInfo.getRank();
+      typeText = dsInfoToTypeString(dsInfo);
+      if (rank == 2)
+      {
+        nLevels = 1;
+        nRows = (int) dsInfo.getDimensions()[0];
+        nCols = (int) dsInfo.getDimensions()[1];
+      } else if (rank == 3)
+      {
+        nLevels = (int) dsInfo.getDimensions()[0];
+        nRows = (int) dsInfo.getDimensions()[1];
+        nCols = (int) dsInfo.getDimensions()[2];
+        if (typeText.equals("uint8") && nCols == 3)
+        {
+          nLevels = 1;
+          nRows = (int) dsInfo.getDimensions()[0];
+          nCols = (int) dsInfo.getDimensions()[1];
+          isRGB = true;
+        }
+      } else if (rank == 4 && typeText.equals("uint8"))
+      {
+        nLevels = (int) dsInfo.getDimensions()[0];
+        nRows = (int) dsInfo.getDimensions()[1];
+        nCols = (int) dsInfo.getDimensions()[2];
+        isRGB = true;
+      } else
+      {
+        IJ.error(dsetName + ": rank " + rank + " of type " + typeText + " not supported (yet)");
+        return null;
+      }
+      typeText = dsInfoToTypeString(dsInfo);
+
+      ImageStack stack = new HDF5VirtualStack(reader, dsetName, nRows, nCols, nLevels, isRGB, typeText);
+
+      imp = new ImagePlus(filename + ": " + dsetName, stack);
+      imp.getCalibration().pixelDepth = element_size_um[0];
+      imp.getCalibration().pixelHeight = element_size_um[1];
+      imp.getCalibration().pixelWidth = element_size_um[2];
+      imp.getCalibration().setUnit("micrometer");
+      imp.setDisplayRange(0, 255);
+
+      imp.setC(1);
+
+      try
+      {
+        imp.show();
+      } catch (HeadlessException ignored)
+      {
+      }
+      return imp;
+    } catch (Exception err)
+    {
+
+      IJ.log(Arrays.toString(err.getStackTrace()));
+
+      IJ.error("Error while opening '" + filename
+          + "', dataset '" + dsetName + "':\n"
+          + err);
+    } catch (OutOfMemoryError o)
+    {
+      IJ.log(Arrays.toString(o.getStackTrace()));
+      IJ.outOfMemory("Load HDF5");
+    }
+    return null;
+
+  }
+
 
   //-----------------------------------------------------------------------------
    static ImagePlus loadDataSetsToHyperStack( String filename, String[] dsetNames,
@@ -389,6 +493,112 @@ public class HDF5ImageJ
     return null;
 
   }
+
+
+  static ImagePlus loadCustomLayoutDataSetToVirtualStack(String filename, String dsetName, String layout)
+  {
+    try
+    {
+      IHDF5ReaderConfigurator conf = HDF5Factory.configureForReading(filename);
+      conf.performNumericConversions();
+      IHDF5Reader reader = conf.reader();
+      ImagePlus imp = null;
+
+      // get datat set info and check layout string
+      //
+      IJ.showStatus( "Loading " + dsetName);
+      //      IJ.showProgress( frame*nChannels+channel+1, nFrames*nChannels);
+      HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(dsetName);
+      float[] element_size_um = {1,1,1};
+      try {
+        element_size_um = reader.float32().getArrayAttr(dsetName, "element_size_um");
+      }
+      catch (HDF5Exception err) {
+        IJ.log("Warning: Can't read attribute 'element_size_um' from file '" + filename
+            + "', dataset '" + dsetName + "':\n"
+            + err + "\n"
+            + "Assuming element size of 1 x 1 x 1 um^3");
+      }
+
+      int rank = dsInfo.getRank();
+      String typeText = dsInfoToTypeString(dsInfo);
+
+      if( rank != layout.length()) {
+        IJ.error( dsetName + ": rank " + rank + " is incompatible with your given layout string '" + layout +"' (rank " + layout.length() + ")");
+        return null;
+      }
+
+
+      // compute dset stride (element-to-element offset in the linear array)
+      //
+      long[] dsetExtent = dsInfo.getDimensions();
+      int[] stride = new int[rank];
+      stride[rank-1] = 1;
+      for (int d = rank-2; d >= 0; --d) {
+        stride[d] = (int)dsetExtent[d+1] * stride[d+1];
+      }
+
+      // interpret layout string and get assigned data set extents
+      //
+      int nLevels   = 1;
+      int nRows     = 1;
+      int nCols     = 1;
+      int levelToLevelOffset     = 0;
+      int rowToRowOffset         = 0;
+      int colToColOffset         = 0;
+
+      int nBits     = 0;
+
+      //
+      for (int d = 0; d < rank; ++d) {
+        switch( layout.charAt(d)) {
+          case 'x': nCols     = (int)dsetExtent[d]; colToColOffset         = stride[d]; break;
+          case 'y': nRows     = (int)dsetExtent[d]; rowToRowOffset         = stride[d]; break;
+          case 'z': nLevels   = (int)dsetExtent[d]; levelToLevelOffset     = stride[d]; break;
+          default:
+            IJ.error( "your given layout string '" + layout +"' contains the illegal character '" + layout.charAt(d) + "'. Allowed characters are 'xyz'. 'ct' are not allowed in virtual stacks yet.");
+            return null;
+        }
+      }
+
+      boolean isRGB = false;
+      nBits = assignHDF5TypeToImagePlusBitdepth( typeText, isRGB);
+      ImageStack stack = new CustomLayoutHDF5VirtualStack(reader, dsetName, nRows, nCols, nLevels, isRGB, typeText, levelToLevelOffset, rowToRowOffset, colToColOffset);
+
+      imp = new ImagePlus(filename + ": " + dsetName, stack);
+
+      imp.getCalibration().pixelDepth  = element_size_um[0];
+      imp.getCalibration().pixelHeight = element_size_um[1];
+      imp.getCalibration().pixelWidth  = element_size_um[2];
+      imp.getCalibration().setUnit("micrometer");
+      imp.setDisplayRange(0,255);
+
+
+
+
+      try {
+        imp.show();
+      }
+      catch (HeadlessException herr) {}
+      return imp;
+    }
+    catch (Exception err)
+    {
+
+      IJ.log(Arrays.toString(err.getStackTrace()));
+
+      IJ.error("Error while opening '" + filename
+          + "', dataset '" + dsetName + "':\n"
+          + err);
+    } catch (OutOfMemoryError o)
+    {
+      IJ.log(Arrays.toString(o.getStackTrace()));
+      IJ.outOfMemory("Load HDF5");
+    }
+    return null;
+
+  }
+
 
   static ImagePlus loadCustomLayoutDataSetToHyperStack( String filename, String dsetName, String layout) {
     return loadCustomLayoutDataSetToHyperStack(filename, dsetName, layout, true);
@@ -601,8 +811,6 @@ public class HDF5ImageJ
           if (rawdata[i] > maxGray) maxGray = rawdata[i];
         }
       }
-
-
 
 
 //         int sliceSize = nCols * nRows;

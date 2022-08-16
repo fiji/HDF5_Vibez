@@ -8,12 +8,12 @@
  * it under the terms of the GNU General Public License as
  * published by the Free Software Foundation, either version 2 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/gpl-2.0.html>.
@@ -48,22 +48,23 @@ import ch.systemsx.cisd.hdf5.HDF5LinkInformation;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 
 
-public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener 
+public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
 {
   //  Private Members
   private ArrayList<DataSetInfo> dataSets_;
   private JTable pathTable_;
   private String fullFileName_;
 //  private JCheckBox loadAsHyperstackCheckBox_;
+  private JCheckBox useVirtualStack_;
   private JRadioButton[] loadAsRadioButtons_;
   private int loadAsMode_;
-  
+
   private SpinnerNumberModel nChannelsSpinner_;
   private JTextField dsetLayoutTextField_;
 
-  public void run(String arg) 
+  public void run(String arg)
   {
-    
+
     // Let User select the filename
     //
     String directory = "";
@@ -77,24 +78,24 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
           od = new OpenDialog(openMSG, "");
       else
           od = new OpenDialog(openMSG, directory, "");
-      
+
       directory = od.getDirectory();
       name = od.getFileName();
       if (name == null)
           return;
       if (name == "")
           return;
-      
+
       File testFile = new File(directory + name);
       if (!testFile.exists() || !testFile.canRead())
           return;
-      
+
       if (testFile.isDirectory()) {
         directory = directory + name;
         tryAgain = true;
       }
     } while (tryAgain);
-    
+
 
     // Get All Dataset names
     //
@@ -133,14 +134,14 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
       line.addElement("<html>"+dataSets_.get(row).element_size_um_text.replace("x", "<font color='red'>&times;</font>")+"</html>");
       tableData.addElement( line);
     }
-    
+
     String[] columnTitles = {"path", "size", "type"};
     Vector<String> columnNames = new Vector<String>();
     columnNames.addElement("data set path");
     columnNames.addElement("size");
     columnNames.addElement("type");
     columnNames.addElement("element size [um]");
-    
+
 
     // make table non-editable
     DefaultTableModel tableModel = new DefaultTableModel(tableData, columnNames) {
@@ -150,12 +151,12 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
           return false;
         }
       };
-    pathTable_ = new JTable( tableModel); 
- 
+    pathTable_ = new JTable( tableModel);
+
     setLayout(new GridBagLayout());
     GridBagConstraints cs = new GridBagConstraints();
     int currentRow = 0;
-    
+
     cs.anchor = GridBagConstraints.FIRST_LINE_START;
 
     //natural height, maximum width
@@ -164,7 +165,7 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     cs.weightx = 0;
     cs.weighty = 0;
     cs.gridx = 0;
-    cs.gridy = currentRow;  
+    cs.gridy = currentRow;
      cs.insets = new Insets(3,3,0,0);
     cs.gridwidth = 2;
     JLabel titleText = new JLabel("<html><h2>Select data sets</h2></html>");
@@ -176,7 +177,7 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     cs.weightx = 1;
     cs.weighty = 1;
     cs.gridx = 0;
-    cs.gridy = ++currentRow;  
+    cs.gridy = ++currentRow;
     cs.insets = new Insets(3,3,0,0);
     cs.gridwidth = 2;
     JScrollPane scrollPaneT = new JScrollPane(pathTable_);
@@ -196,26 +197,25 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     int loadAsMode = (int)Prefs.get("hdf5readervibez.loadasmode", 0);
     loadAsRadioButtons_[loadAsMode].setSelected(true);
     ButtonGroup group = new ButtonGroup();
-    for( int i = 0; i < 5; ++i) 
+    for( int i = 0; i < 5; ++i)
     {
       group.add(loadAsRadioButtons_[i]);
     }
-    
 
 //    loadAsHyperstackCheckBox_ = new JCheckBox( "Combine Stacks to Hyperstack", true);
     cs.fill = GridBagConstraints.HORIZONTAL;
-    cs.ipady = 0; 
+    cs.ipady = 0;
     cs.weightx = 0;
     cs.weighty = 0;
     cs.gridx = 0;
-    cs.gridy = ++currentRow;  
+    cs.gridy = ++currentRow;
     cs.insets = new Insets(3,3,0,0);
     cs.gridwidth = 2;
     JLabel subtitleText = new JLabel("Load as ...");
     add(subtitleText, cs);
     for( int i = 0; i < 2; ++i)
     {
-      cs.gridy = ++currentRow;  
+      cs.gridy = ++currentRow;
       add(loadAsRadioButtons_[i], cs);
     }
 
@@ -223,7 +223,7 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     cs.weightx = 1;
     cs.weighty = 0;
     cs.gridx = 0;
-    cs.gridy = ++currentRow;  
+    cs.gridy = ++currentRow;
     cs.insets = new Insets(3,3,0,0);
     cs.gridwidth = 1;
     //natural height, natural width
@@ -232,32 +232,37 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
 
     cs.fill = GridBagConstraints.HORIZONTAL;
     String dsetLayout = Prefs.get("hdf5readervibez.dsetLayout", "zyx");
-    dsetLayoutTextField_ = new JTextField(dsetLayout, 6); 
+    dsetLayoutTextField_ = new JTextField(dsetLayout, 6);
     cs.gridx = 1;
     add(dsetLayoutTextField_, cs);
 
+    cs.gridy = ++currentRow;
+    cs.gridx = 0;
+    useVirtualStack_ = new JCheckBox("Use HDF5-backed virtual stacks", false);
+    add(useVirtualStack_, cs);
+
     cs.fill = GridBagConstraints.HORIZONTAL;
-    cs.ipady = 0; 
+    cs.ipady = 0;
     cs.weightx = 0;
     cs.weighty = 0;
     cs.gridx = 0;
-    cs.gridy = ++currentRow;  
+    cs.gridy = ++currentRow;
     cs.insets = new Insets(3,3,0,0);
     cs.gridwidth = 2;
     JLabel subtitleText2 = new JLabel("Combine to ...");
-    cs.gridy = ++currentRow;  
+    cs.gridy = ++currentRow;
     add(subtitleText2, cs);
     for( int i = 2; i < 5; ++i)
     {
-      cs.gridy = ++currentRow;  
+      cs.gridy = ++currentRow;
       add(loadAsRadioButtons_[i], cs);
     }
- 
+
     JLabel spinnerText = new JLabel("       - Number of channels:");
     cs.weightx = 1;
     cs.weighty = 0;
     cs.gridx = 0;
-    cs.gridy = ++currentRow;  
+    cs.gridy = ++currentRow;
     cs.insets = new Insets(3,3,0,0);
     cs.gridwidth = 1;
     //natural height, natural width
@@ -271,16 +276,16 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     add(spinner, cs);
     int nChannels = (int)Prefs.get("hdf5readervibez.nchannels", 1);
     spinner.setValue(nChannels);
-    
+
 
     JButton b1 = new JButton("Load");
     b1.setActionCommand("load");
     b1.addActionListener(this);
-    cs.ipady = 0;     
+    cs.ipady = 0;
     cs.weightx = 1;
     cs.weighty = 0;
     cs.gridx = 0;
-    cs.gridy = ++currentRow;   
+    cs.gridy = ++currentRow;
     cs.gridwidth = 1;
     //natural height, natural width
     cs.fill = GridBagConstraints.NONE;
@@ -290,21 +295,21 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     b2.setActionCommand("cancel");
     b2.addActionListener(this);
     cs.gridx = 1;
-    cs.gridy = currentRow;   
+    cs.gridy = currentRow;
     cs.gridwidth = 1;
     add(b2,cs);
 
     pack();
 
     Dimension si = getSize();
-    si.height = 400;
+    si.height = 420;
     si.width = pathTable_.getWidth()+40;
     setSize( si);
     setVisible(true);
-    
- 
+
+
   }
-  
+
 
 
 //  private String dsInfoToTypeString( HDF5DataSetInformation dsInfo) {
@@ -334,19 +339,19 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     HDF5ImageJ.recursiveGetInfo(reader, link, dataSets_);
   }
 
-  public void actionPerformed(ActionEvent event) 
+  public void actionPerformed(ActionEvent event)
   {
-    if (event.getActionCommand().equals("load")) 
+    if (event.getActionCommand().equals("load"))
     {
       loadHDF5();
     }
-    else if (event.getActionCommand().equals("cancel")) 
+    else if (event.getActionCommand().equals("cancel"))
     {
       dispose();
     }
   }
 
-  
+
   public void loadHDF5() {
     int[] selection = pathTable_.getSelectedRows();
     if (selection.length == 0) {
@@ -361,31 +366,42 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     }
     Prefs.set("hdf5readervibez.loadasmode", loadAsMode);
 
-    if (loadAsMode == 0) 
+    if (loadAsMode == 0)
     {
       // load as multiple standard stacks
-      
+
       for (int i : selection) {
         IJ.log( "i = " + i + dataSets_.get(i).path);
         String[] dsetNames = new String[1];
         dsetNames[0] = dataSets_.get(i).path;
         String type = dataSets_.get(i).typeText;
-        HDF5ImageJ.loadDataSetsToHyperStack( fullFileName_, dsetNames, 1, 1);
+        if (useVirtualStack_.isSelected()){
+          HDF5ImageJ.loadDataSetsToVirtualStack( fullFileName_, dsetNames);
+        } else
+        {
+          HDF5ImageJ.loadDataSetsToHyperStack(fullFileName_, dsetNames, 1, 1);
+        }
       }
     }
-    else if  (loadAsMode == 1) 
+    else if  (loadAsMode == 1)
     {
       // load as multiple hyper stacks with custom layout
-      
+
       for (int i : selection) {
         IJ.log( "i = " + i + dataSets_.get(i).path);
         String dsetLayout =  dsetLayoutTextField_.getText();
         Prefs.set("hdf5readervibez.dsetLayout", dsetLayout);
-       
-        HDF5ImageJ.loadCustomLayoutDataSetToHyperStack( fullFileName_, dataSets_.get(i).path, 
-                                                        dsetLayout);
+
+        if (useVirtualStack_.isSelected())
+        {
+          HDF5ImageJ.loadCustomLayoutDataSetToVirtualStack(fullFileName_, dataSets_.get(i).path, dsetLayout);
+        } else
+        {
+          HDF5ImageJ.loadCustomLayoutDataSetToHyperStack( fullFileName_, dataSets_.get(i).path,
+              dsetLayout);
+        }
       }
-      
+
     }
     else
     {
@@ -397,10 +413,10 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
       int nChannels = 1;
       if( loadAsMode == 2) nChannels = selection.length;
       if( loadAsMode == 3) nChannels = 1;
-      if( loadAsMode == 4) 
+      if( loadAsMode == 4)
       {
         nChannels = nChannelsSpinner_.getNumber().intValue();
-      }            
+      }
       if (nChannels > dsetNames.length) {
         nChannels = dsetNames.length;
       }
@@ -414,17 +430,23 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
         commaSeparatedDsetNames += dsetNames[i];
       }
       Prefs.set("hdf5readervibez.dsetnames",commaSeparatedDsetNames);
-      
+
       String type = dataSets_.get(selection[0]).typeText;
-      HDF5ImageJ.loadDataSetsToHyperStack( fullFileName_, dsetNames, 
-                                          nFrames, nChannels);
-      
-    } 
+      if (useVirtualStack_.isSelected())
+      {
+        HDF5ImageJ.loadDataSetsToVirtualStack( fullFileName_, dsetNames);
+      } else
+      {
+        HDF5ImageJ.loadDataSetsToHyperStack( fullFileName_, dsetNames,
+            nFrames, nChannels);
+      }
+
+    }
     dispose();
   }
-  
 
-  
+
+
 //
 //  int assignHDF5TypeToImagePlusBitdepth( String type, int rank) {
 //    int nBits = 0;
