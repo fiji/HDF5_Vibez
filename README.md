@@ -2,13 +2,13 @@
 
 [![](https://github.com/fiji/HDF5_Vibez/actions/workflows/build-main.yml/badge.svg)](https://github.com/fiji/HDF5_Vibez/actions/workflows/build-main.yml)
 
-This plugin is an HDF5 reader/writer plugin for ImageJ and Fiji. It is a continuation of the [original code by Olaf Ronneberger](http://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/hdf5.html) and others.
+This plugin is an HDF5 reader/writer plugin for ImageJ and Fiji. It is a continuation of the [original code by Olaf Ronneberger](https://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/hdf5.html) and others.
 
-HDF5 is a data format for storing extremely large and complex data collections. For more information see the [official website](http://hdf.ncsa.uiuc.edu/HDF5/). The plugin uses the [jhdf5 library from ETH SIS](https://wiki-bsse.ethz.ch/display/JHDF5) for reading and writing HDF5 files.
+HDF5 is a data format for storing extremely large and complex data collections. For more information see the [official website](https://www.hdfgroup.org/solutions/hdf5). The plugin uses the [jhdf5 library from ETH SIS](https://wiki-bsse.ethz.ch/display/JHDF5) for reading and writing HDF5 files.
 
 ## Features
 
-The HDF5 plugin for ImageJ and Fiji provides The following features:
+The HDF5 plugin for ImageJ and Fiji provides the following features:
 
 * Loading 2D - 5D datasets
 * Loading and combining mulitple 2d/3D datasets to 3D/4D/5D Hyperstacks
@@ -17,13 +17,13 @@ The HDF5 plugin for ImageJ and Fiji provides The following features:
 
 ## Example Data Sets
 
-* [pollen.h5](http://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/samples/pollen.h5) (3D confocal data of a pollen grain: 8 bit gray, approx. 16MB
+* [pollen.h5](https://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/samples/pollen.h5) (3D confocal data of a pollen grain: 8 bit gray, approx. 16MB
 
 ## Load data sets
 
 1.  Select "__File -- Import -- HDF5...__". The file selector will pop up. Double click the file you want to load.
 2.  The "__Select data sets__" dialog will open:
-    ![](http://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/select_data_sets2.png)
+    ![](https://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/select_data_sets2.png)
 3.  select one or more datasets. Multiple selections can be done by
     *   mouseclick on first and Shift+mouseclick on last item
     *   mousedown on first and drag to last item
@@ -48,7 +48,7 @@ The HDF5 plugin for ImageJ and Fiji provides The following features:
 
 1.  Select "File -- Save As -- HDF5 (new or replace)..." to create a new HDF5 file or "File -- Save As -- HDF5 (append)..." to append the dataset(s) to an existing HDF5 file. The file selector will pop up. Select the file name.
 2.  The Save Dialog will open to select the data set layout
-    ![](http://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/save_dialog.png)
+    ![](https://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/save_dialog.png)
 3.  Compression Level allow to select the compression of the data set. The compression is lossless, i.e. it works like a zip-archive. Possible compression levels are
     *   no compression,
     *   1 (fastest, larger file)
