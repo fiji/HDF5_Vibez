@@ -57,23 +57,23 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-// import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
-// //import ncsa.hdf.hdflib.HDFException;
-// import ncsa.hdf.object.Attribute;
-// import ncsa.hdf.object.Dataset;
-// import ncsa.hdf.object.Datatype;
-// import ncsa.hdf.object.Group;
-// import ncsa.hdf.object.HObject;
-// import ncsa.hdf.object.Metadata;
-// import ncsa.hdf.object.h5.H5Datatype;
-// import ncsa.hdf.object.h5.H5File;
+// import hdf.hdf5lib.exceptions.HDF5Exception;
+// //import hdf.hdflib.HDFException;
+// import hdf.object.Attribute;
+// import hdf.object.Dataset;
+// import hdf.object.Datatype;
+// import hdf.object.Group;
+// import hdf.object.HObject;
+// import hdf.object.Metadata;
+// import hdf.object.h5.H5Datatype;
+// import hdf.object.h5.H5File;
 
 //import org.apache.commons.lang.ArrayUtils;
 
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5ReaderConfigurator;
-import ncsa.hdf.hdf5lib.exceptions.HDF5Exception; 
+import hdf.hdf5lib.exceptions.HDF5Exception; 
 import ch.systemsx.cisd.base.mdarray.MDByteArray;
 import ch.systemsx.cisd.base.mdarray.MDFloatArray;
 import ch.systemsx.cisd.base.mdarray.MDShortArray;
