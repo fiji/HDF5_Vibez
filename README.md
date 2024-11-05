@@ -4,7 +4,7 @@
 
 This plugin is an HDF5 reader/writer plugin for ImageJ and Fiji. It is a continuation of the [original code by Olaf Ronneberger](https://lmb.informatik.uni-freiburg.de/resources/opensource/imagej_plugins/hdf5.html) and others.
 
-HDF5 is a data format for storing extremely large and complex data collections. For more information see the [official website](https://www.hdfgroup.org/solutions/hdf5). The plugin uses the [jhdf5 library from ETH SIS](https://wiki-bsse.ethz.ch/display/JHDF5) for reading and writing HDF5 files.
+HDF5 is a data format for storing extremely large and complex data collections. For more information see the [official website](https://www.hdfgroup.org/solutions/hdf5). The plugin uses the [jhdf5 library from ETH SIS](https://unlimited.ethz.ch/spaces/JHDF/pages/92865195/JHDF+HDF5+for+Java) for reading and writing HDF5 files.
 
 ## Features
 
