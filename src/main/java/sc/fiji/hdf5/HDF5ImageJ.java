@@ -27,15 +27,24 @@
 
 package sc.fiji.hdf5;
 
-import ch.systemsx.cisd.hdf5.*;
+import ch.systemsx.cisd.base.mdarray.MDByteArray;
+import ch.systemsx.cisd.base.mdarray.MDFloatArray;
+import ch.systemsx.cisd.base.mdarray.MDShortArray;
+import ch.systemsx.cisd.hdf5.HDF5DataSetInformation;
+import ch.systemsx.cisd.hdf5.HDF5DataTypeInformation;
+import ch.systemsx.cisd.hdf5.HDF5Factory;
+import ch.systemsx.cisd.hdf5.HDF5FloatStorageFeatures;
+import ch.systemsx.cisd.hdf5.HDF5IntStorageFeatures;
+import ch.systemsx.cisd.hdf5.HDF5LinkInformation;
+import ch.systemsx.cisd.hdf5.HDF5ObjectType;
+import ch.systemsx.cisd.hdf5.IHDF5Reader;
+import ch.systemsx.cisd.hdf5.IHDF5ReaderConfigurator;
+import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ImageProcessor;
 import ij.process.ColorProcessor;
-import ch.systemsx.cisd.base.mdarray.MDByteArray;
-import ch.systemsx.cisd.base.mdarray.MDShortArray;
-import ch.systemsx.cisd.base.mdarray.MDFloatArray;
 import hdf.hdf5lib.exceptions.HDF5Exception;
 import java.awt.HeadlessException;
 import java.util.ArrayList;
