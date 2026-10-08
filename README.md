@@ -71,6 +71,5 @@ The HDF5 plugin saves and loads the pixel/voxel size in micrometer of the image 
 
 ## Wish list for next version
 
-* Support for single data sets with more than 2GB size (will require a slice-wise or block-wise loadin/saving)
 * disable the Log Window
 * load a sub cube of the data set (e.g. for large 5D arrays stored in a single dataset)
