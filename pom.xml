@@ -101,6 +101,11 @@
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
+
+		<janelia-jhdf5.version>22.03.01-SNAPSHOT</janelia-jhdf5.version>
+		<!-- pom-scijava manages older bytedeco versions; match what janelia-jhdf5 is built against. -->
+		<javacpp.version>1.5.15-SNAPSHOT</javacpp.version>
+		<hdf5.version>2.2.0-${javacpp.version}</hdf5.version>
 	</properties>
 
 	<repositories>
@@ -116,8 +121,10 @@
 			<artifactId>ij</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>cisd</groupId>
-			<artifactId>jhdf5</artifactId>
+			<groupId>org.scijava</groupId>
+			<artifactId>janelia-jhdf5</artifactId>
+			<version>${janelia-jhdf5.version}</version>
+		</dependency>
 		</dependency>
 	</dependencies>
 </project>
