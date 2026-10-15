@@ -125,6 +125,18 @@
 			<artifactId>janelia-jhdf5</artifactId>
 			<version>${janelia-jhdf5.version}</version>
 		</dependency>
+
+		<!-- Test scope -->
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- hdf.hdf5lib.H5 needs an slf4j binding at runtime; Fiji provides one, tests don't. -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-nop</artifactId>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 </project>
