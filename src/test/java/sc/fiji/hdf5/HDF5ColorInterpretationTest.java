@@ -132,7 +132,8 @@ public class HDF5ColorInterpretationTest
   public void otherTypesAreNeverRgb()
   {
     final String f = write(false);
-    for (final HDF5ImageJ.ColorInterpretation c : HDF5ImageJ.ColorInterpretation.values())
+    for (final HDF5ImageJ.ColorInterpretation c : new HDF5ImageJ.ColorInterpretation[] {
+        HDF5ImageJ.ColorInterpretation.RGB, HDF5ImageJ.ColorInterpretation.VOLUME})
     {
       final ImagePlus imp = HDF5ImageJ.loadDataSetsToHyperStack(f, D, 1, 1, false, c);
       assertNotNull(imp);

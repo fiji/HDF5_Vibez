@@ -55,16 +55,47 @@ import java.util.List;
 public class HDF5ImageJ
 {
   /**
-   * How to read a 3-D {@code uint8} dataset whose last dimension is 3. {@code [y, x, 3]} is an RGB
-   * image, but {@code [z, y, 3]} is a volume that happens to be 3 pixels wide; the file does not
-   * say which. This does not apply to other datasets, which are never RGB when rank 3.
+   * How to read a dataset whose last dimension is 3. {@code uint8} {@code [y, x, 3]} is an RGB image,
+   * but {@code [z, y, 3]} is a volume that happens to be 3 pixels wide, and a {@code [y, x, 3]} array
+   * of any type may hold three channels; the file does not say which.
    */
   public enum ColorInterpretation
   {
-    /** An RGB image: the last dimension holds the red, green and blue samples (the default). */
+    /**
+     * The default: {@code uint8} data is an RGB image ({@code [y, x, 3]} or {@code [z, y, x, 3]});
+     * data of any other type is a volume.
+     */
     RGB,
-    /** A 3-D volume of z, y, x. */
-    VOLUME
+    /** Never RGB: rank 3 is {@code [z, y, x]} and rank 4 is {@code [t, z, y, x]}. */
+    VOLUME,
+    /**
+     * The last dimension holds three channels, in any type: {@code [y, x, 3]}, {@code [z, y, x, 3]}
+     * or {@code [t, z, y, x, 3]}. Not available for virtual stacks.
+     */
+    CHANNELS
+  }
+
+  /** Labels for {@link ColorInterpretation#values()}, in order, for the dialogs. */
+  static final String[] LAST_DIM_3_CHOICES = {
+    "default (uint8: RGB, other: volume)", "3-D volume", "3 channels"
+  };
+
+  /**
+   * Decides whether a dataset needs a custom layout instead of the plain z, y, x (or RGB) reading.
+   * Rank 4 is {@code [t, z, y, x]} unless it is {@code uint8} RGB; rank 5 needs a last dimension of
+   * 3 channels; and {@link ColorInterpretation#CHANNELS} makes the last dimension of 3 a channel.
+   *
+   * @return a layout string for {@link #loadCustomLayoutDataSetToHyperStack}, or {@code null} if the
+   *         dataset is read as a plain stack or RGB image (or is not supported)
+   */
+  static String layoutFor(int rank, long[] dims, String typeText, ColorInterpretation interpretation)
+  {
+    final boolean lastIs3 = rank > 0 && dims[rank - 1] == 3;
+    if (lastIs3 && rank >= 3 && rank <= 5 && (interpretation == ColorInterpretation.CHANNELS || rank == 5))
+      return new String[] {"yxc", "zyxc", "tzyxc"}[rank - 3];
+    if (rank == 4 && !(typeText.equals("uint8") && lastIs3 && interpretation == ColorInterpretation.RGB))
+      return "tzyx";
+    return null;
   }
 
   //-----------------------------------------------------------------------------
@@ -274,6 +305,13 @@ public class HDF5ImageJ
 
       rank = dsInfo.getRank();
       typeText = dsInfoToTypeString(dsInfo);
+      String layout = layoutFor(rank, dsInfo.getDimensions(), typeText, colorInterpretation);
+      if (layout != null)
+      {
+        IJ.error(dsetName + ": a rank " + rank + " data set of type " + typeText + " ('" + layout
+            + "') cannot be loaded as a virtual stack. Load it without the virtual stack option.");
+        return null;
+      }
       if (rank == 2)
       {
         nLevels = 1;
@@ -400,6 +438,15 @@ public class HDF5ImageJ
           if (imp == null) {
             rank = dsInfo.getRank();
             typeText = dsInfoToTypeString(dsInfo);
+            String layout = layoutFor(rank, dsInfo.getDimensions(), typeText, colorInterpretation);
+            if (layout != null) {
+              if (dsetNames.length != 1 || nFrames != 1 || nChannels != 1) {
+                IJ.error( dsetName + ": a rank " + rank + " data set cannot be combined with other data sets");
+                return null;
+              }
+              IJ.log( dsetName + ": rank " + rank + " is read with layout '" + layout + "'");
+              return loadCustomLayoutDataSetToHyperStack( filename, dsetName, layout, show);
+            }
             if (rank == 2) {
               nLevels = 1;
               nRows = (int)dsInfo.getDimensions()[0];
