@@ -62,6 +62,19 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
   private SpinnerNumberModel nChannelsSpinner_;
   private JTextField dsetLayoutTextField_;
 
+  /**
+   * Interprets the plugin argument as the path of a file to open.
+   *
+   * @return the file, or {@code null} if {@code arg} is not the path of an existing,
+   *         readable file (in which case the file dialog is shown)
+   */
+  static File fileFromArg(final String arg)
+  {
+    if (arg == null || arg.trim().isEmpty()) return null;
+    final File file = new File(arg.trim()).getAbsoluteFile();
+    return file.isFile() && file.canRead() ? file : null;
+  }
+
   public void run(String arg)
   {
 
@@ -72,11 +85,11 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     boolean tryAgain;
     String openMSG = "Open HDF5...";
 
-    if (arg != null && arg.endsWith("hdf")){
-      File theFile = new File(arg);
-      directory = theFile.getParent();
-      if (!directory.endsWith("/")) directory += "/"; 
-      name = theFile.getName();
+    final File argFile = fileFromArg(arg);
+    if (argFile != null) {
+      // called with the path of a file to open, e.g. from drag-and-drop: skip the file dialog
+      directory = argFile.getParent() + File.separator;
+      name = argFile.getName();
     } else {
         do {
           tryAgain = false;
