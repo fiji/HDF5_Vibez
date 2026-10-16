@@ -1,19 +1,17 @@
 package sc.fiji.hdf5;
 
-import ch.systemsx.cisd.base.mdarray.MDByteArray;
-import ch.systemsx.cisd.base.mdarray.MDFloatArray;
-import ch.systemsx.cisd.base.mdarray.MDIntArray;
-import ch.systemsx.cisd.base.mdarray.MDShortArray;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
-import ij.IJ;
 import ij.VirtualStack;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
 
-import java.util.Arrays;
-
+/**
+ * A stack that reads one slice at a time from an HDF5 dataset, so datasets that are too large to
+ * hold in memory (or in a single Java array) can be browsed. The dataset is {@code [z, y, x]},
+ * or {@code [y, x]} for a single plane.
+ */
 public class HDF5VirtualStack extends VirtualStack
 {
   protected IHDF5Reader reader;
@@ -21,6 +19,7 @@ public class HDF5VirtualStack extends VirtualStack
   protected int nRows, nCols, nLevels;
   protected String typeText;
   protected boolean isRGB;
+  private final int rank;
 
   public HDF5VirtualStack(IHDF5Reader reader, String dsetName, int nRows, int nCols, int nLevels, boolean isRGB, String typeText)
   {
@@ -31,6 +30,7 @@ public class HDF5VirtualStack extends VirtualStack
     this.nLevels = nLevels;
     this.typeText = typeText;
     this.isRGB = isRGB;
+    this.rank = reader.object().getDataSetInformation(dsetName).getRank();
   }
 
   @Override
@@ -39,61 +39,75 @@ public class HDF5VirtualStack extends VirtualStack
     return this.nLevels;
   }
 
-
   @Override
   public ImageProcessor getProcessor(int n)
   {
+    if (isRGB)
+      throw new UnsupportedOperationException("RGB 8 bit pixel images not supported in virtual stacks (yet)");
     n = n - 1; // zero index
-    ImageProcessor ip;
-    if (typeText.equals("uint8") && !isRGB)
-    {
-      MDByteArray rawdata = reader.uint8().readMDArrayBlock(dsetName, new int[]{1, nRows, nCols}, new long[]{n, 0, 0});
-      ip = new ByteProcessor(nCols, nRows);
-      System.arraycopy(rawdata.getAsFlatArray(), 0,
-          (byte[]) ip.getPixels(), 0,
-          nRows * nCols);
-    } else if (typeText.equals("uint8"))
-    {  // RGB data
-      throw new UnsupportedOperationException("RGB 8 bit pixel images not supported in virtual stacks (yet)"); // I don't have a test file to check behavior on
+    final int[] blockDims = rank == 2 ? new int[] {nRows, nCols} : new int[] {1, nRows, nCols};
+    final long[] offset = rank == 2 ? new long[] {0, 0} : new long[] {n, 0, 0};
+    return toProcessor(readBlock(blockDims, offset), nCols, 1);
+  }
 
-    } else if (typeText.equals("uint16"))
+  /**
+   * Reads a block of the dataset as a flat array: {@code byte[]}, {@code short[]} or
+   * {@code float[]} (int32 is converted to float, as when loading into memory).
+   */
+  protected Object readBlock(final int[] blockDims, final long[] offset)
+  {
+    if (typeText.equals("uint8"))
+      return reader.uint8().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
+    else if (typeText.equals("uint16"))
+      return reader.uint16().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
+    else if (typeText.equals("int16"))
+      return reader.int16().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
+    else if (typeText.equals("float32") || typeText.equals("float64"))
+      return reader.float32().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
+    else if (typeText.equals("int32"))
     {
-      MDShortArray rawdata = reader.uint16().readMDArrayBlock(dsetName, new int[]{1, nRows, nCols}, new long[]{n, 0, 0});
+      final int[] ints = reader.int32().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
+      final float[] floats = new float[ints.length];
+      for (int i = 0; i < ints.length; i++)
+        floats[i] = ints[i];
+      return floats;
+    }
+    throw new UnsupportedOperationException("Type " + typeText + " not supported by virtual stacks yet");
+  }
+
+  /**
+   * Copies a flat block into a new processor. Pixel (row, col) is read from
+   * {@code flat[row * rowStride + col * colStride]}.
+   */
+  protected ImageProcessor toProcessor(final Object flat, final int rowStride, final int colStride)
+  {
+    final ImageProcessor ip;
+    if (flat instanceof byte[])
+      ip = new ByteProcessor(nCols, nRows);
+    else if (flat instanceof short[])
       ip = new ShortProcessor(nCols, nRows);
-      System.arraycopy(rawdata.getAsFlatArray(), 0,
-          (short[]) ip.getPixels(), 0,
-          nRows * nCols);
-    } else if (typeText.equals("int16"))
-    {
-      MDShortArray rawdata = reader.int16().readMDArrayBlock(dsetName, new int[]{1, nRows, nCols}, new long[]{n, 0, 0});
-      ip = new ShortProcessor(nCols, nRows);
-      System.arraycopy(rawdata.getAsFlatArray(), 0,
-          (short[]) ip.getPixels(), 0,
-          nRows * nCols);
-    } else if (typeText.equals("float32") || typeText.equals("float64"))
-    {
-      MDFloatArray rawdata = reader.float32().readMDArrayBlock(dsetName, new int[]{1, nRows, nCols}, new long[]{n, 0, 0});
+    else
       ip = new FloatProcessor(nCols, nRows);
-      System.arraycopy(rawdata.getAsFlatArray(), 0,
-          (float[]) ip.getPixels(), 0,
-          nRows * nCols);
-    } else if (typeText.equals("int32"))
+    final Object pixels = ip.getPixels();
+
+    if (rowStride == nCols && colStride == 1)
     {
-      int[] rawdata_ints = reader.int32().readMDArrayBlock(dsetName, new int[]{1, nRows, nCols}, new long[]{n, 0, 0}).getAsFlatArray();
-      float[] rawdata = new float[rawdata_ints.length];
-      for (int i = 0; i < rawdata_ints.length; i++)
+      System.arraycopy(flat, 0, pixels, 0, nRows * nCols);
+      return ip;
+    }
+    for (int row = 0; row < nRows; ++row)
+    {
+      int src = row * rowStride;
+      int dst = row * nCols;
+      for (int col = 0; col < nCols; ++col)
       {
-        rawdata[i] = (float) rawdata_ints[i];
+        if (flat instanceof byte[]) ((byte[]) pixels)[dst] = ((byte[]) flat)[src];
+        else if (flat instanceof short[]) ((short[]) pixels)[dst] = ((short[]) flat)[src];
+        else ((float[]) pixels)[dst] = ((float[]) flat)[src];
+        ++dst;
+        src += colStride;
       }
-      ip = new FloatProcessor(nCols, nRows);
-      System.arraycopy(rawdata, 0,
-          (float[]) ip.getPixels(), 0,
-          nRows * nCols);
-    } else
-    {
-      throw new UnsupportedOperationException("Type " + typeText + " not supported by virtual stacks yet");
     }
     return ip;
   }
 }
-
