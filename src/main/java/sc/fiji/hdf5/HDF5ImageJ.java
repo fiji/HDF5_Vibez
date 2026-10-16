@@ -1140,24 +1140,6 @@ public class HDF5ImageJ
       //
       float[] element_size_um = getElementSizeUm(imp);
 
-      //  create channelDims vector for MDxxxArray
-      //
-      long[] channelDims = null;
-      if (nLevs > 1)
-      {
-        channelDims = new long[3];
-        channelDims[0] = nLevs;
-        channelDims[1] = nRows;
-        channelDims[2] = nCols;
-      }
-      else
-      {
-        channelDims = new long[2];
-        channelDims[0] = nRows;
-        channelDims[1] = nCols;
-      }
-
-
       //
       //  loop through frames and channels
       //
@@ -1173,144 +1155,58 @@ public class HDF5ImageJ
 
           System.out.println( "t="+t+",c="+c+" --> "+dsetName);
 
-          // write Stack according to data type
+          // create the dataset with one chunk per plane, then write it a plane at a time: no copy of
+          // the whole stack is needed, and a stack of 2^31 or more elements (or a virtual stack) can be saved
           //
           int imgColorType = imp.getType();
+          boolean isRGB = imgColorType == ImagePlus.COLOR_RGB;
 
-          if (imgColorType == ImagePlus.GRAY8
-              || imgColorType == ImagePlus.COLOR_256 )
-          {
-            // Save as Byte Array
-            //
-            MDByteArray arr = new MDByteArray( channelDims);
-            // copy data
-            //
-            ImageStack stack = imp.getStack();
-            byte[] flatArr   = arr.getAsFlatArray();
-            int sliceSize    = nRows*nCols;
-
-            for(int lev = 0; lev < nLevs; ++lev)
-            {
-              int stackIndex = imp.getStackIndex(c + 1,
-                                                 lev + 1,
-                                                 t + 1);
-              System.arraycopy( stack.getPixels(stackIndex), 0,
-                                flatArr, lev*sliceSize,
-                                sliceSize);
-            }
-
-            // save it
-            //
-            writer.uint8().writeMDArray( dsetName, arr, HDF5IntStorageFeatures.createDeflationDelete(compressionLevel));
+          long[] dsetDims;
+          int[] planeDims;
+          if (isRGB) {
+            dsetDims = nLevs > 1 ? new long[] {nLevs, nRows, nCols, 3} : new long[] {nRows, nCols, 3};
+            planeDims = nLevs > 1 ? new int[] {1, nRows, nCols, 3} : new int[] {nRows, nCols, 3};
+          } else {
+            dsetDims = nLevs > 1 ? new long[] {nLevs, nRows, nCols} : new long[] {nRows, nCols};
+            planeDims = nLevs > 1 ? new int[] {1, nRows, nCols} : new int[] {nRows, nCols};
           }
-          else if (imgColorType == ImagePlus.GRAY16)
-          {
-            // Save as Short Array
-            //
-            MDShortArray arr = new MDShortArray( channelDims);
+          long[] planeDimsLong = new long[planeDims.length];
+          for (int d = 0; d < planeDims.length; ++d) planeDimsLong[d] = planeDims[d];
 
-            // copy data
-            //
-            ImageStack stack = imp.getStack();
-            short[] flatArr   = arr.getAsFlatArray();
-            int sliceSize    = nRows*nCols;
-
-            for(int lev = 0; lev < nLevs; ++lev)
-            {
-              int stackIndex = imp.getStackIndex(c + 1,
-                                                 lev + 1,
-                                                 t + 1);
-              System.arraycopy( stack.getPixels(stackIndex), 0,
-                                flatArr, lev*sliceSize,
-                                sliceSize);
-            }
-
-            // save it
-            //
-            writer.uint16().writeMDArray( dsetName, arr, HDF5IntStorageFeatures.createDeflationDelete(compressionLevel));
+          boolean isByte  = imgColorType == ImagePlus.GRAY8 || imgColorType == ImagePlus.COLOR_256;
+          boolean isShort = imgColorType == ImagePlus.GRAY16;
+          boolean isFloat = imgColorType == ImagePlus.GRAY32;
+          HDF5IntStorageFeatures intFeatures = HDF5IntStorageFeatures.createDeflationDelete(compressionLevel);
+          if (isByte || isRGB) {
+            writer.uint8().createMDArray( dsetName, dsetDims, planeDims, intFeatures);
+          } else if (isShort) {
+            writer.uint16().createMDArray( dsetName, dsetDims, planeDims, intFeatures);
+          } else if (isFloat) {
+            writer.float32().createMDArray( dsetName, dsetDims, planeDims,
+                                            HDF5FloatStorageFeatures.createDeflationDelete(compressionLevel));
           }
-          else if (imgColorType == ImagePlus.GRAY32)
+
+          ImageStack stack = imp.getStack();
+          for (int lev = 0; lev < nLevs; ++lev)
           {
-            // Save as Float Array
-            //
-            MDFloatArray arr = new MDFloatArray( channelDims);
+            int stackIndex = imp.getStackIndex(c + 1, lev + 1, t + 1);
+            long[] offset = new long[dsetDims.length]; // zeros, except for the plane
+            if (nLevs > 1) offset[0] = lev;
 
-            // copy data
-            //
-            ImageStack stack = imp.getStack();
-            float[] flatArr   = arr.getAsFlatArray();
-            int sliceSize    = nRows*nCols;
-
-            for(int lev = 0; lev < nLevs; ++lev)
-            {
-              int stackIndex = imp.getStackIndex(c + 1,
-                                                 lev + 1,
-                                                 t + 1);
-              System.arraycopy( stack.getPixels(stackIndex), 0,
-                                flatArr, lev*sliceSize,
-                                sliceSize);
+            if (isByte) {
+              writer.uint8().writeMDArrayBlockWithOffset( dsetName,
+                  new MDByteArray( (byte[]) stack.getPixels(stackIndex), planeDimsLong), offset);
+            } else if (isShort) {
+              writer.uint16().writeMDArrayBlockWithOffset( dsetName,
+                  new MDShortArray( (short[]) stack.getPixels(stackIndex), planeDimsLong), offset);
+            } else if (isFloat) {
+              writer.float32().writeMDArrayBlockWithOffset( dsetName,
+                  new MDFloatArray( (float[]) stack.getPixels(stackIndex), planeDimsLong), offset);
+            } else if (isRGB) {
+              writer.uint8().writeMDArrayBlockWithOffset( dsetName,
+                  new MDByteArray( interleaveRGB( (int[]) stack.getProcessor(stackIndex).getPixels()), planeDimsLong),
+                  offset);
             }
-
-            // save it
-            //
-            writer.float32().writeMDArray( dsetName, arr,
-                                           HDF5FloatStorageFeatures.createDeflationDelete(
-                                               compressionLevel));
-          }
-          else if (imgColorType == ImagePlus.COLOR_RGB)
-          {
-            //  Save RGB as Byte Array with additional dimension
-            //
-            long[] channelDimsRGB = null;
-            if (nLevs > 1)
-            {
-              channelDimsRGB = new long[4];
-              channelDimsRGB[0] = nLevs;
-              channelDimsRGB[1] = nRows;
-              channelDimsRGB[2] = nCols;
-              channelDimsRGB[3] = 3;
-            }
-            else
-            {
-              channelDimsRGB = new long[3];
-              channelDimsRGB[0] = nRows;
-              channelDimsRGB[1] = nCols;
-              channelDimsRGB[2] = 3;
-            }
-            MDByteArray arr = new MDByteArray( channelDimsRGB);
-
-            // copy data
-            //
-            ImageStack stack = imp.getStack();
-            byte[] flatArr   = arr.getAsFlatArray();
-            int sliceSize    = nRows*nCols;
-
-            for(int lev = 0; lev < nLevs; ++lev)
-            {
-              int stackIndex = imp.getStackIndex(c + 1,
-                                                 lev + 1,
-                                                 t + 1);
-
-              ColorProcessor cp = (ColorProcessor)(stack.getProcessor(stackIndex));
-              byte[] red   = cp.getChannel(1);
-              byte[] green = cp.getChannel(2);
-              byte[] blue  = cp.getChannel(3);
-
-              int offset = lev*sliceSize*3;
-              for( int i=0; i < sliceSize; ++i)
-              {
-                flatArr[offset+3*i+0] = red[i];
-                flatArr[offset+3*i+1] = green[i];
-                flatArr[offset+3*i+2] = blue[i];
-              }
-
-            }
-
-            // save it
-            //
-            writer.uint8().writeMDArray( dsetName, arr, HDF5IntStorageFeatures.createDeflationDelete(compressionLevel));
-
-
           }
 
 
@@ -1344,6 +1240,20 @@ public class HDF5ImageJ
 
 
 
+
+  //-----------------------------------------------------------------------------
+  /** Splits packed RGB pixels into interleaved bytes: r, g, b, r, g, b, ... */
+  static byte[] interleaveRGB( int[] pixels)
+  {
+    byte[] rgb = new byte[pixels.length * 3];
+    for (int i = 0; i < pixels.length; ++i)
+    {
+      rgb[3 * i + 0] = (byte) ((pixels[i] & 0xff0000) >> 16);
+      rgb[3 * i + 1] = (byte) ((pixels[i] & 0x00ff00) >> 8);
+      rgb[3 * i + 2] = (byte)  (pixels[i] & 0x0000ff);
+    }
+    return rgb;
+  }
 
   //-----------------------------------------------------------------------------
    static String dsInfoToTypeString( HDF5DataSetInformation dsInfo) {

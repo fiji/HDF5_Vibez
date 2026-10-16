@@ -43,6 +43,12 @@ The HDF5 plugin for ImageJ and Fiji provides the following features:
     * __Combine to ... hyperstack (multichannel)__ loads the selected 2D/3D data sets and combines them to a multi-channel hyperstack
     * __Combine to ... hyperstack (time series)__ loads the selected 2D/3D data sets and combines them to a time-series hyperstack
     * __Combine to ... hyperstack (multichannel time series)__ loads the selected 2D/3D data sets and combines them to a multichannel time-series hyperstack. You have to specify the Number of channels of the resulting hyperstack. The number of time points is then determined from the number of selected data sets divided by the number of channels
+5.  optional settings, below the layout:
+    * __Use HDF5-backed virtual stacks__ reads one plane at a time as you browse, so data sets that do not fit in memory (or in one Java array, 2^31 elements) can be opened. Not available for hyperstacks, `c`/`t` layouts or 3-channel data.
+    * __Last dimension of 3__ says how to read a data set such as 100x200x3. By default a uint8 data set is an RGB image and any other type is a 3-D volume. Choose __3-D volume__ to read a uint8 data set as z,y,x, or __3 channels__ to read the last dimension as channels (any type).
+    * __Slices__ loads only some slices of a stack, so a data set that is too large can be sampled: `5` (one slice), `10-20`, `10-20-3` (every third from 10 to 20), `10-` (10 to the end), `%3` (every third), or a list such as `1,5,10-12`. Slices are numbered from 1. It applies to individual stacks and custom layouts (z, y and x only), and the z spacing is scaled for evenly spaced slices.
+
+Data sets of rank 4 are read as `[t, z, y, x]` hyperstacks (unless they are uint8 RGB, `[z, y, x, 3]`), and rank 5 as `[t, z, y, x, 3]` with three channels. Signed 8-bit and 32/64-bit integers (int8, int32, uint32, int64, uint64) are loaded as 32-bit floats, and a warning is logged if that cannot represent the values exactly (beyond ±2^24).
 
 ## Save data sets
 
@@ -72,4 +78,4 @@ The HDF5 plugin saves and loads the pixel/voxel size in micrometer of the image 
 ## Wish list for next version
 
 * disable the Log Window
-* load a sub cube of the data set (e.g. for large 5D arrays stored in a single dataset)
+* load a sub cube of the data set in x and y (slices along z can be selected already)
