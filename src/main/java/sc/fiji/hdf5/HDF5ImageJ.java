@@ -46,6 +46,7 @@ import ij.ImageStack;
 import ij.process.ImageProcessor;
 import ij.process.ColorProcessor;
 import hdf.hdf5lib.exceptions.HDF5Exception;
+import ij.measure.Calibration;
 import java.awt.HeadlessException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -233,6 +234,10 @@ public class HDF5ImageJ
           float[] element_size_um = {1,1,1};
           try {
             element_size_um = reader.float32().getArrayAttr(dsetName, "element_size_um");
+            // prepend 1 to 2-D element sizes
+            if (element_size_um.length == 2)
+                element_size_um = new float[] {
+                    1, element_size_um[0], element_size_um[1] };
           }
           catch (HDF5Exception err) {
             IJ.log("Warning: Can't read attribute 'element_size_um' from file '" + filename
@@ -447,6 +452,10 @@ public class HDF5ImageJ
       float[] element_size_um = {1,1,1};
       try {
         element_size_um = reader.float32().getArrayAttr(dsetName, "element_size_um");
+        // prepend 1 to 2-D element sizes
+        if (element_size_um.length == 2)
+            element_size_um = new float[] {
+                1, element_size_um[0], element_size_um[1] };
       }
       catch (HDF5Exception err) {
         IJ.log("Warning: Can't read attribute 'element_size_um' from file '" + filename
@@ -816,11 +825,7 @@ public class HDF5ImageJ
 
       //  get element_size_um
       //
-      ij.measure.Calibration cal = imp.getCalibration();
-      float[] element_size_um = new float[3];
-      element_size_um[0] = (float) cal.pixelDepth;
-      element_size_um[1] = (float) cal.pixelHeight;
-      element_size_um[2] = (float) cal.pixelWidth;
+      float[] element_size_um = getElementSizeUm(imp);
 
       //  create channelDims vector for MDxxxArray
       //
@@ -1107,4 +1112,41 @@ public class HDF5ImageJ
     }
     return nameList;
   }
+
+  //---------------------------------------------------------------------------
+  public static float[] getElementSizeUm(ImagePlus imp) {
+    Calibration cal = imp.getCalibration();
+    float factor = 1;
+    switch (cal.getUnit())
+    {
+    case "m":
+    case "meter":
+      factor = 1000000.0f;
+    break;
+    case "cm":
+    case "centimeter":
+      factor = 10000.0f;
+    break;
+    case "mm":
+    case "millimeter":
+      factor = 1000.0f;
+    break;
+    case "nm":
+    case "nanometer":
+      factor = 0.001f;
+    break;
+    case "pm":
+    case "pikometer":
+      factor = 0.000001f;
+    break;
+    }
+    if (imp.getNSlices() == 1)
+        return new float[] {
+            (float)cal.pixelHeight * factor, (float)cal.pixelWidth * factor };
+    else
+        return new float[] {
+            (float)cal.pixelDepth * factor, (float)cal.pixelHeight * factor,
+            (float)cal.pixelWidth * factor };
+  }
+
 }
