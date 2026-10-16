@@ -5,7 +5,6 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
-import org.apache.commons.lang.NotImplementedException;
 
 public class CustomLayoutHDF5VirtualStack extends HDF5VirtualStack
 {
@@ -107,7 +106,7 @@ public class CustomLayoutHDF5VirtualStack extends HDF5VirtualStack
 
     } else
     {
-      throw new NotImplementedException("Type " + typeText + " not supported yet");
+      throw new UnsupportedOperationException("Type " + typeText + " not supported yet");
     }
     return ip;
   }

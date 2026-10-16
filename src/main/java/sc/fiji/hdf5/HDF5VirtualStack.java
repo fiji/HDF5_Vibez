@@ -11,7 +11,6 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
-import org.apache.commons.lang.NotImplementedException;
 
 import java.util.Arrays;
 
@@ -55,7 +54,7 @@ public class HDF5VirtualStack extends VirtualStack
           nRows * nCols);
     } else if (typeText.equals("uint8"))
     {  // RGB data
-      throw new NotImplementedException("RGB 8 bit pixel images not supported in virtual stacks (yet)"); // I don't have a test file to check behavior on
+      throw new UnsupportedOperationException("RGB 8 bit pixel images not supported in virtual stacks (yet)"); // I don't have a test file to check behavior on
 
     } else if (typeText.equals("uint16"))
     {
@@ -92,7 +91,7 @@ public class HDF5VirtualStack extends VirtualStack
           nRows * nCols);
     } else
     {
-      throw new NotImplementedException("Type " + typeText + " not supported by virtual stacks yet");
+      throw new UnsupportedOperationException("Type " + typeText + " not supported by virtual stacks yet");
     }
     return ip;
   }
