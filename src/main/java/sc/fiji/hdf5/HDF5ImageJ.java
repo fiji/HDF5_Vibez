@@ -511,14 +511,8 @@ public class HDF5ImageJ
             for (int i = 0; i < data.length; ++i) {
               if (data[i] > maxGray) maxGray = data[i];
             }
-          } else if (typeText.equals( "int32")) {
-            int[] rawdata_asflat = reader.int32().readMDArray(dsetName).getAsFlatArray();
-            warnIfInt32LosesPrecision(rawdata_asflat, dsetName);
-            float[] rawdata_asfloat = new float[rawdata_asflat.length];
-            for (int i = 0; i < rawdata_asfloat.length; i++)
-            {
-              rawdata_asfloat[i] = (float) rawdata_asflat[i];
-            }
+          } else if (isIntegerConvertedToFloat(typeText)) {
+            float[] rawdata_asfloat = readIntegerAsFloat(reader, dsetName, typeText);
             for( int lev = 0; lev < nLevels; ++lev) {
               ImageProcessor ip = imp.getStack().getProcessor( imp.getStackIndex(
                       channel+1, lev+1, frame+1));
@@ -903,14 +897,8 @@ public class HDF5ImageJ
           if (rawdata[i] > maxGray) maxGray = rawdata[i];
         }
       }
-      else if (typeText.equals("int32")) {
-        int[] rawdata_ints = reader.int32().readMDArray(dsetName).getAsFlatArray();
-        warnIfInt32LosesPrecision(rawdata_ints, dsetName);
-        float[] rawdata = new float[rawdata_ints.length];
-        for (int i = 0; i < rawdata_ints.length; i++)
-        {
-          rawdata[i]= (float)rawdata_ints[i];
-        }
+      else if (isIntegerConvertedToFloat(typeText)) {
+        float[] rawdata = readIntegerAsFloat(reader, dsetName, typeText);
 
         for( int frame = 0; frame < nFrames; ++frame) {
           for( int channel = 0; channel < nChannels; ++channel) {
@@ -1331,8 +1319,8 @@ public class HDF5ImageJ
       nBits = 16;
     } else if (type.equals("float32") || type.equals("float64")) {
       nBits = 32;
-    } else if (type.equals("int32")) {
-      nBits = 32; // we will cast to 32 bit floats
+    } else if (isIntegerConvertedToFloat(type)) {
+      nBits = 32; // there is no ImageJ integer type this wide (or signed 8 bit), so cast to float
     } else {
       IJ.error("Type '" + type + "' Not handled yet!");
     }
@@ -1400,6 +1388,52 @@ public class HDF5ImageJ
     for (int i = 0; i < values.length; i++)
       floats[i] = values[i];
     return floats;
+  }
+
+  //-----------------------------------------------------------------------------
+  /**
+   * Integer types ImageJ has no image type for: signed 8 bit, and 32 and 64 bit. They are loaded as
+   * 32-bit floats (uint8, uint16 and int16 map to ImageJ's own integer types).
+   */
+  static boolean isIntegerConvertedToFloat(String typeText)
+  {
+    return typeText.equals("int8") || typeText.equals("int32") || typeText.equals("uint32")
+        || typeText.equals("int64") || typeText.equals("uint64");
+  }
+
+  static boolean longLosesPrecision(long[] values)
+  {
+    for (long v : values)
+      if (v > MAX_EXACT_FLOAT_INT || v < -MAX_EXACT_FLOAT_INT) return true;
+    return false;
+  }
+
+  static float[] longToFloat(long[] values)
+  {
+    float[] floats = new float[values.length];
+    for (int i = 0; i < values.length; i++)
+      floats[i] = values[i];
+    return floats;
+  }
+
+  /**
+   * Reads a whole dataset of one of the {@link #isIntegerConvertedToFloat integer types} as floats,
+   * warning if that loses precision. The reader must convert numeric types, which turns every one of
+   * these types into a long.
+   */
+  static float[] readIntegerAsFloat(IHDF5Reader reader, String dsetName, String typeText)
+  {
+    if (typeText.equals("int32"))
+    {
+      int[] ints = reader.int32().readMDArray(dsetName).getAsFlatArray();
+      warnIfInt32LosesPrecision(ints, dsetName);
+      return int32ToFloat(ints);
+    }
+    long[] longs = reader.int64().readMDArray(dsetName).getAsFlatArray();
+    if (longLosesPrecision(longs))
+      IJ.log("Warning: '" + dsetName + "' has " + typeText + " values beyond +-2^24, "
+             + "which cannot be represented exactly as 32-bit floats");
+    return longToFloat(longs);
   }
 
   //-----------------------------------------------------------------------------

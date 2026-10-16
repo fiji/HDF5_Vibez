@@ -96,15 +96,28 @@ public class HDF5VirtualStack extends VirtualStack
         return reader.int16().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
       else if (typeText.equals("float32") || typeText.equals("float64"))
         return reader.float32().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
-      else if (typeText.equals("int32"))
+      else if (HDF5ImageJ.isIntegerConvertedToFloat(typeText))
       {
-        final int[] ints = reader.int32().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
-        if (!warnedPrecision && HDF5ImageJ.int32LosesPrecision(ints))
+        final float[] floats;
+        final boolean lossy;
+        if (typeText.equals("int32"))
+        {
+          final int[] ints = reader.int32().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
+          lossy = HDF5ImageJ.int32LosesPrecision(ints);
+          floats = HDF5ImageJ.int32ToFloat(ints);
+        }
+        else
+        {
+          final long[] longs = reader.int64().readMDArrayBlock(dsetName, blockDims, offset).getAsFlatArray();
+          lossy = HDF5ImageJ.longLosesPrecision(longs);
+          floats = HDF5ImageJ.longToFloat(longs);
+        }
+        if (lossy && !warnedPrecision)
         {
           warnedPrecision = true;
-          IJ.log("Warning: '" + dsetName + "' has int32 values beyond +-2^24, which cannot be represented exactly as 32-bit floats");
+          IJ.log("Warning: '" + dsetName + "' has " + typeText + " values beyond +-2^24, which cannot be represented exactly as 32-bit floats");
         }
-        return HDF5ImageJ.int32ToFloat(ints);
+        return floats;
       }
     }
     finally
