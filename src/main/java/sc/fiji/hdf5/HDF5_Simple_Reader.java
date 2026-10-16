@@ -27,6 +27,7 @@
 
 package sc.fiji.hdf5;
 
+import ij.IJ;
 import ij.plugin.*;
 import ij.gui.GenericDialog;
 import ij.io.OpenDialog;
@@ -49,24 +50,39 @@ public class HDF5_Simple_Reader implements PlugIn
     gd.addNumericField( "nframes", nFrames, 0);
     int nChannels = (int)Prefs.get("hdf5readervibez.nchannels", 1);
     gd.addNumericField( "nchannels", nChannels, 0);
-    // worded so that an unchecked (or absent, in an older macro) box keeps the default of RGB
-    gd.addCheckbox( "uint8_ending_in_3_is_volume", Prefs.get("hdf5readervibez.uint8x3asvolume", false));
+    // the first choice is the default, so a macro that lacks this key keeps the default
+    gd.addChoice( "last_dimension_of_3", HDF5ImageJ.LAST_DIM_3_CHOICES,
+                  HDF5ImageJ.LAST_DIM_3_CHOICES[Math.max(0, Math.min(HDF5ImageJ.LAST_DIM_3_CHOICES.length - 1,
+                      (int) Prefs.get("hdf5readervibez.lastdim3", 0)))]);
+    gd.addStringField( "slices", "", 12);
     gd.showDialog();
     if (gd.wasCanceled()) return;
 
     String datasetnames = gd.getNextString();
     int nframes =  (int)(gd.getNextNumber());
     int nchannels = (int)(gd.getNextNumber());
-    boolean uint8x3AsVolume = gd.getNextBoolean();
-    Prefs.set("hdf5readervibez.uint8x3asvolume", uint8x3AsVolume);
+    int lastDim3 = gd.getNextChoiceIndex();
+    Prefs.set("hdf5readervibez.lastdim3", lastDim3);
+    String slices = gd.getNextString();
+
+    String[] names = datasetnames.split(",");
+    if (SliceRange.isGiven(slices)) {
+      // only some slices of one dataset
+      if (names.length != 1) {
+        IJ.error("Slices can only be selected for a single data set");
+        return;
+      }
+      HDF5ImageJ.loadSlices( filename, names[0].trim(), null, slices,
+                             HDF5ImageJ.ColorInterpretation.values()[lastDim3], true);
+      return;
+    }
 
     HDF5ImageJ.loadDataSetsToHyperStack( filename,
                                          datasetnames.split(","),
                                          nframes,
                                          nchannels,
                                          true,
-                                         uint8x3AsVolume ? HDF5ImageJ.ColorInterpretation.VOLUME
-                                                         : HDF5ImageJ.ColorInterpretation.RGB);
+                                         HDF5ImageJ.ColorInterpretation.values()[lastDim3]);
     
   }
 }

@@ -44,11 +44,20 @@ public class HDF5_Simple_Custom_Reader implements PlugIn
     
     gd.addStringField( "datasetname", "/path/to/dataset", 128);
     gd.addStringField( "dataset layout", "yx", 5);
+    gd.addStringField( "slices", "", 12);
     gd.showDialog();
     if (gd.wasCanceled()) return;
 
     String datasetnames = gd.getNextString();
     String dsetLayout   = gd.getNextString();
+    String slices       = gd.getNextString();
+
+    if (SliceRange.isGiven(slices)) {
+      // only some slices (the layout can use only x, y and z)
+      HDF5ImageJ.loadSlices( filename, datasetnames, dsetLayout, slices,
+                             HDF5ImageJ.ColorInterpretation.RGB, true);
+      return;
+    }
 
     HDF5ImageJ.loadCustomLayoutDataSetToHyperStack(
             filename, datasetnames, dsetLayout);

@@ -55,16 +55,47 @@ import java.util.List;
 public class HDF5ImageJ
 {
   /**
-   * How to read a 3-D {@code uint8} dataset whose last dimension is 3. {@code [y, x, 3]} is an RGB
-   * image, but {@code [z, y, 3]} is a volume that happens to be 3 pixels wide; the file does not
-   * say which. This does not apply to other datasets, which are never RGB when rank 3.
+   * How to read a dataset whose last dimension is 3. {@code uint8} {@code [y, x, 3]} is an RGB image,
+   * but {@code [z, y, 3]} is a volume that happens to be 3 pixels wide, and a {@code [y, x, 3]} array
+   * of any type may hold three channels; the file does not say which.
    */
   public enum ColorInterpretation
   {
-    /** An RGB image: the last dimension holds the red, green and blue samples (the default). */
+    /**
+     * The default: {@code uint8} data is an RGB image ({@code [y, x, 3]} or {@code [z, y, x, 3]});
+     * data of any other type is a volume.
+     */
     RGB,
-    /** A 3-D volume of z, y, x. */
-    VOLUME
+    /** Never RGB: rank 3 is {@code [z, y, x]} and rank 4 is {@code [t, z, y, x]}. */
+    VOLUME,
+    /**
+     * The last dimension holds three channels, in any type: {@code [y, x, 3]}, {@code [z, y, x, 3]}
+     * or {@code [t, z, y, x, 3]}. Not available for virtual stacks.
+     */
+    CHANNELS
+  }
+
+  /** Labels for {@link ColorInterpretation#values()}, in order, for the dialogs. */
+  static final String[] LAST_DIM_3_CHOICES = {
+    "default (uint8: RGB, other: volume)", "3-D volume", "3 channels"
+  };
+
+  /**
+   * Decides whether a dataset needs a custom layout instead of the plain z, y, x (or RGB) reading.
+   * Rank 4 is {@code [t, z, y, x]} unless it is {@code uint8} RGB; rank 5 needs a last dimension of
+   * 3 channels; and {@link ColorInterpretation#CHANNELS} makes the last dimension of 3 a channel.
+   *
+   * @return a layout string for {@link #loadCustomLayoutDataSetToHyperStack}, or {@code null} if the
+   *         dataset is read as a plain stack or RGB image (or is not supported)
+   */
+  static String layoutFor(int rank, long[] dims, String typeText, ColorInterpretation interpretation)
+  {
+    final boolean lastIs3 = rank > 0 && dims[rank - 1] == 3;
+    if (lastIs3 && rank >= 3 && rank <= 5 && (interpretation == ColorInterpretation.CHANNELS || rank == 5))
+      return new String[] {"yxc", "zyxc", "tzyxc"}[rank - 3];
+    if (rank == 4 && !(typeText.equals("uint8") && lastIs3 && interpretation == ColorInterpretation.RGB))
+      return "tzyx";
+    return null;
   }
 
   //-----------------------------------------------------------------------------
@@ -124,6 +155,21 @@ public class HDF5ImageJ
     } else {
       saveHyperStack( imp, filename, datasetname, formatTime, formatChannel, compressionLevel, "append");
     }
+  }
+
+  /**
+   * Reads some of the slices of a stack, such as {@code "10-20-2"} (see {@link SliceRange}), so that
+   * only those planes are held in memory.
+   */
+  public static ImagePlus hdf5readSlices( String filename, String datasetname, String slices)
+  {
+    return loadSlices( filename, datasetname, null, slices, ColorInterpretation.RGB, false);
+  }
+
+  /** As {@link #hdf5readSlices(String, String, String)}, for a dataset with a custom layout (z, y and x only). */
+  public static ImagePlus hdf5readSlices( String filename, String datasetname, String layout, String slices)
+  {
+    return loadSlices( filename, datasetname, layout, slices, ColorInterpretation.RGB, false);
   }
 
   public static ArrayList<DataSetInfo> hdf5list( String filename)
@@ -274,6 +320,13 @@ public class HDF5ImageJ
 
       rank = dsInfo.getRank();
       typeText = dsInfoToTypeString(dsInfo);
+      String layout = layoutFor(rank, dsInfo.getDimensions(), typeText, colorInterpretation);
+      if (layout != null)
+      {
+        IJ.error(dsetName + ": a rank " + rank + " data set of type " + typeText + " ('" + layout
+            + "') cannot be loaded as a virtual stack. Load it without the virtual stack option.");
+        return null;
+      }
       if (rank == 2)
       {
         nLevels = 1;
@@ -400,6 +453,15 @@ public class HDF5ImageJ
           if (imp == null) {
             rank = dsInfo.getRank();
             typeText = dsInfoToTypeString(dsInfo);
+            String layout = layoutFor(rank, dsInfo.getDimensions(), typeText, colorInterpretation);
+            if (layout != null) {
+              if (dsetNames.length != 1 || nFrames != 1 || nChannels != 1) {
+                IJ.error( dsetName + ": a rank " + rank + " data set cannot be combined with other data sets");
+                return null;
+              }
+              IJ.log( dsetName + ": rank " + rank + " is read with layout '" + layout + "'");
+              return loadCustomLayoutDataSetToHyperStack( filename, dsetName, layout, show);
+            }
             if (rank == 2) {
               nLevels = 1;
               nRows = (int)dsInfo.getDimensions()[0];
@@ -511,14 +573,8 @@ public class HDF5ImageJ
             for (int i = 0; i < data.length; ++i) {
               if (data[i] > maxGray) maxGray = data[i];
             }
-          } else if (typeText.equals( "int32")) {
-            int[] rawdata_asflat = reader.int32().readMDArray(dsetName).getAsFlatArray();
-            warnIfInt32LosesPrecision(rawdata_asflat, dsetName);
-            float[] rawdata_asfloat = new float[rawdata_asflat.length];
-            for (int i = 0; i < rawdata_asfloat.length; i++)
-            {
-              rawdata_asfloat[i] = (float) rawdata_asflat[i];
-            }
+          } else if (isIntegerConvertedToFloat(typeText)) {
+            float[] rawdata_asfloat = readIntegerAsFloat(reader, dsetName, typeText);
             for( int lev = 0; lev < nLevels; ++lev) {
               ImageProcessor ip = imp.getStack().getProcessor( imp.getStackIndex(
                       channel+1, lev+1, frame+1));
@@ -903,14 +959,8 @@ public class HDF5ImageJ
           if (rawdata[i] > maxGray) maxGray = rawdata[i];
         }
       }
-      else if (typeText.equals("int32")) {
-        int[] rawdata_ints = reader.int32().readMDArray(dsetName).getAsFlatArray();
-        warnIfInt32LosesPrecision(rawdata_ints, dsetName);
-        float[] rawdata = new float[rawdata_ints.length];
-        for (int i = 0; i < rawdata_ints.length; i++)
-        {
-          rawdata[i]= (float)rawdata_ints[i];
-        }
+      else if (isIntegerConvertedToFloat(typeText)) {
+        float[] rawdata = readIntegerAsFloat(reader, dsetName, typeText);
 
         for( int frame = 0; frame < nFrames; ++frame) {
           for( int channel = 0; channel < nChannels; ++channel) {
@@ -1090,24 +1140,6 @@ public class HDF5ImageJ
       //
       float[] element_size_um = getElementSizeUm(imp);
 
-      //  create channelDims vector for MDxxxArray
-      //
-      long[] channelDims = null;
-      if (nLevs > 1)
-      {
-        channelDims = new long[3];
-        channelDims[0] = nLevs;
-        channelDims[1] = nRows;
-        channelDims[2] = nCols;
-      }
-      else
-      {
-        channelDims = new long[2];
-        channelDims[0] = nRows;
-        channelDims[1] = nCols;
-      }
-
-
       //
       //  loop through frames and channels
       //
@@ -1123,144 +1155,58 @@ public class HDF5ImageJ
 
           System.out.println( "t="+t+",c="+c+" --> "+dsetName);
 
-          // write Stack according to data type
+          // create the dataset with one chunk per plane, then write it a plane at a time: no copy of
+          // the whole stack is needed, and a stack of 2^31 or more elements (or a virtual stack) can be saved
           //
           int imgColorType = imp.getType();
+          boolean isRGB = imgColorType == ImagePlus.COLOR_RGB;
 
-          if (imgColorType == ImagePlus.GRAY8
-              || imgColorType == ImagePlus.COLOR_256 )
-          {
-            // Save as Byte Array
-            //
-            MDByteArray arr = new MDByteArray( channelDims);
-            // copy data
-            //
-            ImageStack stack = imp.getStack();
-            byte[] flatArr   = arr.getAsFlatArray();
-            int sliceSize    = nRows*nCols;
-
-            for(int lev = 0; lev < nLevs; ++lev)
-            {
-              int stackIndex = imp.getStackIndex(c + 1,
-                                                 lev + 1,
-                                                 t + 1);
-              System.arraycopy( stack.getPixels(stackIndex), 0,
-                                flatArr, lev*sliceSize,
-                                sliceSize);
-            }
-
-            // save it
-            //
-            writer.uint8().writeMDArray( dsetName, arr, HDF5IntStorageFeatures.createDeflationDelete(compressionLevel));
+          long[] dsetDims;
+          int[] planeDims;
+          if (isRGB) {
+            dsetDims = nLevs > 1 ? new long[] {nLevs, nRows, nCols, 3} : new long[] {nRows, nCols, 3};
+            planeDims = nLevs > 1 ? new int[] {1, nRows, nCols, 3} : new int[] {nRows, nCols, 3};
+          } else {
+            dsetDims = nLevs > 1 ? new long[] {nLevs, nRows, nCols} : new long[] {nRows, nCols};
+            planeDims = nLevs > 1 ? new int[] {1, nRows, nCols} : new int[] {nRows, nCols};
           }
-          else if (imgColorType == ImagePlus.GRAY16)
-          {
-            // Save as Short Array
-            //
-            MDShortArray arr = new MDShortArray( channelDims);
+          long[] planeDimsLong = new long[planeDims.length];
+          for (int d = 0; d < planeDims.length; ++d) planeDimsLong[d] = planeDims[d];
 
-            // copy data
-            //
-            ImageStack stack = imp.getStack();
-            short[] flatArr   = arr.getAsFlatArray();
-            int sliceSize    = nRows*nCols;
-
-            for(int lev = 0; lev < nLevs; ++lev)
-            {
-              int stackIndex = imp.getStackIndex(c + 1,
-                                                 lev + 1,
-                                                 t + 1);
-              System.arraycopy( stack.getPixels(stackIndex), 0,
-                                flatArr, lev*sliceSize,
-                                sliceSize);
-            }
-
-            // save it
-            //
-            writer.uint16().writeMDArray( dsetName, arr, HDF5IntStorageFeatures.createDeflationDelete(compressionLevel));
+          boolean isByte  = imgColorType == ImagePlus.GRAY8 || imgColorType == ImagePlus.COLOR_256;
+          boolean isShort = imgColorType == ImagePlus.GRAY16;
+          boolean isFloat = imgColorType == ImagePlus.GRAY32;
+          HDF5IntStorageFeatures intFeatures = HDF5IntStorageFeatures.createDeflationDelete(compressionLevel);
+          if (isByte || isRGB) {
+            writer.uint8().createMDArray( dsetName, dsetDims, planeDims, intFeatures);
+          } else if (isShort) {
+            writer.uint16().createMDArray( dsetName, dsetDims, planeDims, intFeatures);
+          } else if (isFloat) {
+            writer.float32().createMDArray( dsetName, dsetDims, planeDims,
+                                            HDF5FloatStorageFeatures.createDeflationDelete(compressionLevel));
           }
-          else if (imgColorType == ImagePlus.GRAY32)
+
+          ImageStack stack = imp.getStack();
+          for (int lev = 0; lev < nLevs; ++lev)
           {
-            // Save as Float Array
-            //
-            MDFloatArray arr = new MDFloatArray( channelDims);
+            int stackIndex = imp.getStackIndex(c + 1, lev + 1, t + 1);
+            long[] offset = new long[dsetDims.length]; // zeros, except for the plane
+            if (nLevs > 1) offset[0] = lev;
 
-            // copy data
-            //
-            ImageStack stack = imp.getStack();
-            float[] flatArr   = arr.getAsFlatArray();
-            int sliceSize    = nRows*nCols;
-
-            for(int lev = 0; lev < nLevs; ++lev)
-            {
-              int stackIndex = imp.getStackIndex(c + 1,
-                                                 lev + 1,
-                                                 t + 1);
-              System.arraycopy( stack.getPixels(stackIndex), 0,
-                                flatArr, lev*sliceSize,
-                                sliceSize);
+            if (isByte) {
+              writer.uint8().writeMDArrayBlockWithOffset( dsetName,
+                  new MDByteArray( (byte[]) stack.getPixels(stackIndex), planeDimsLong), offset);
+            } else if (isShort) {
+              writer.uint16().writeMDArrayBlockWithOffset( dsetName,
+                  new MDShortArray( (short[]) stack.getPixels(stackIndex), planeDimsLong), offset);
+            } else if (isFloat) {
+              writer.float32().writeMDArrayBlockWithOffset( dsetName,
+                  new MDFloatArray( (float[]) stack.getPixels(stackIndex), planeDimsLong), offset);
+            } else if (isRGB) {
+              writer.uint8().writeMDArrayBlockWithOffset( dsetName,
+                  new MDByteArray( interleaveRGB( (int[]) stack.getProcessor(stackIndex).getPixels()), planeDimsLong),
+                  offset);
             }
-
-            // save it
-            //
-            writer.float32().writeMDArray( dsetName, arr,
-                                           HDF5FloatStorageFeatures.createDeflationDelete(
-                                               compressionLevel));
-          }
-          else if (imgColorType == ImagePlus.COLOR_RGB)
-          {
-            //  Save RGB as Byte Array with additional dimension
-            //
-            long[] channelDimsRGB = null;
-            if (nLevs > 1)
-            {
-              channelDimsRGB = new long[4];
-              channelDimsRGB[0] = nLevs;
-              channelDimsRGB[1] = nRows;
-              channelDimsRGB[2] = nCols;
-              channelDimsRGB[3] = 3;
-            }
-            else
-            {
-              channelDimsRGB = new long[3];
-              channelDimsRGB[0] = nRows;
-              channelDimsRGB[1] = nCols;
-              channelDimsRGB[2] = 3;
-            }
-            MDByteArray arr = new MDByteArray( channelDimsRGB);
-
-            // copy data
-            //
-            ImageStack stack = imp.getStack();
-            byte[] flatArr   = arr.getAsFlatArray();
-            int sliceSize    = nRows*nCols;
-
-            for(int lev = 0; lev < nLevs; ++lev)
-            {
-              int stackIndex = imp.getStackIndex(c + 1,
-                                                 lev + 1,
-                                                 t + 1);
-
-              ColorProcessor cp = (ColorProcessor)(stack.getProcessor(stackIndex));
-              byte[] red   = cp.getChannel(1);
-              byte[] green = cp.getChannel(2);
-              byte[] blue  = cp.getChannel(3);
-
-              int offset = lev*sliceSize*3;
-              for( int i=0; i < sliceSize; ++i)
-              {
-                flatArr[offset+3*i+0] = red[i];
-                flatArr[offset+3*i+1] = green[i];
-                flatArr[offset+3*i+2] = blue[i];
-              }
-
-            }
-
-            // save it
-            //
-            writer.uint8().writeMDArray( dsetName, arr, HDF5IntStorageFeatures.createDeflationDelete(compressionLevel));
-
-
           }
 
 
@@ -1294,6 +1240,20 @@ public class HDF5ImageJ
 
 
 
+
+  //-----------------------------------------------------------------------------
+  /** Splits packed RGB pixels into interleaved bytes: r, g, b, r, g, b, ... */
+  static byte[] interleaveRGB( int[] pixels)
+  {
+    byte[] rgb = new byte[pixels.length * 3];
+    for (int i = 0; i < pixels.length; ++i)
+    {
+      rgb[3 * i + 0] = (byte) ((pixels[i] & 0xff0000) >> 16);
+      rgb[3 * i + 1] = (byte) ((pixels[i] & 0x00ff00) >> 8);
+      rgb[3 * i + 2] = (byte)  (pixels[i] & 0x0000ff);
+    }
+    return rgb;
+  }
 
   //-----------------------------------------------------------------------------
    static String dsInfoToTypeString( HDF5DataSetInformation dsInfo) {
@@ -1331,8 +1291,8 @@ public class HDF5ImageJ
       nBits = 16;
     } else if (type.equals("float32") || type.equals("float64")) {
       nBits = 32;
-    } else if (type.equals("int32")) {
-      nBits = 32; // we will cast to 32 bit floats
+    } else if (isIntegerConvertedToFloat(type)) {
+      nBits = 32; // there is no ImageJ integer type this wide (or signed 8 bit), so cast to float
     } else {
       IJ.error("Type '" + type + "' Not handled yet!");
     }
@@ -1377,6 +1337,63 @@ public class HDF5ImageJ
   }
 
   //-----------------------------------------------------------------------------
+  /**
+   * Loads only the slices selected by {@code spec} (see {@link SliceRange}) of a stack into memory.
+   * The planes are read one at a time through a virtual stack, so a dataset that is too large to
+   * load can still be sampled. The z spacing is multiplied by the step if the slices are evenly spaced.
+   *
+   * @param layout the layout of the dataset ({@code x}, {@code y} and {@code z} only), or
+   *               {@code null} for the usual z, y, x or RGB reading
+   * @return the image, or {@code null} (after reporting an error) if the slices cannot be loaded
+   */
+  static ImagePlus loadSlices( String filename, String dsetName, String layout, String spec,
+                               ColorInterpretation colorInterpretation, boolean show)
+  {
+    ImagePlus source = layout == null
+        ? loadDataSetsToVirtualStack( filename, new String[] {dsetName}, false, colorInterpretation)
+        : loadCustomLayoutDataSetToVirtualStack( filename, dsetName, layout, false);
+    if (source == null) return null;
+
+    int[] slices;
+    try
+    {
+      slices = SliceRange.parse( spec, source.getStackSize());
+    }
+    catch (IllegalArgumentException err)
+    {
+      IJ.error( dsetName + ": " + err.getMessage());
+      return null;
+    }
+    if (slices.length == 0)
+    {
+      IJ.error( dsetName + ": no slices selected by '" + spec + "'");
+      return null;
+    }
+
+    ImageStack stack = new ImageStack( source.getWidth(), source.getHeight());
+    for (int slice : slices)
+      stack.addSlice( "slice " + slice, source.getStack().getProcessor( slice));
+    ImagePlus imp = new ImagePlus( source.getTitle() + " [" + spec.trim() + "]", stack);
+    imp.setCalibration( source.getCalibration().copy());
+    if (slices.length > 1)
+    {
+      int spacing = slices[1] - slices[0];
+      boolean even = spacing > 0;
+      for (int i = 2; even && i < slices.length; i++)
+        even = slices[i] - slices[i - 1] == spacing;
+      if (even) imp.getCalibration().pixelDepth *= spacing;
+    }
+    imp.resetDisplayRange();
+    if (show) {
+      try {
+        imp.show();
+      }
+      catch (HeadlessException herr) {}
+    }
+    return imp;
+  }
+
+  //-----------------------------------------------------------------------------
   /** Largest magnitude below which every int can be stored exactly in a 32-bit float. */
   static final int MAX_EXACT_FLOAT_INT = 1 << 24;
 
@@ -1400,6 +1417,52 @@ public class HDF5ImageJ
     for (int i = 0; i < values.length; i++)
       floats[i] = values[i];
     return floats;
+  }
+
+  //-----------------------------------------------------------------------------
+  /**
+   * Integer types ImageJ has no image type for: signed 8 bit, and 32 and 64 bit. They are loaded as
+   * 32-bit floats (uint8, uint16 and int16 map to ImageJ's own integer types).
+   */
+  static boolean isIntegerConvertedToFloat(String typeText)
+  {
+    return typeText.equals("int8") || typeText.equals("int32") || typeText.equals("uint32")
+        || typeText.equals("int64") || typeText.equals("uint64");
+  }
+
+  static boolean longLosesPrecision(long[] values)
+  {
+    for (long v : values)
+      if (v > MAX_EXACT_FLOAT_INT || v < -MAX_EXACT_FLOAT_INT) return true;
+    return false;
+  }
+
+  static float[] longToFloat(long[] values)
+  {
+    float[] floats = new float[values.length];
+    for (int i = 0; i < values.length; i++)
+      floats[i] = values[i];
+    return floats;
+  }
+
+  /**
+   * Reads a whole dataset of one of the {@link #isIntegerConvertedToFloat integer types} as floats,
+   * warning if that loses precision. The reader must convert numeric types, which turns every one of
+   * these types into a long.
+   */
+  static float[] readIntegerAsFloat(IHDF5Reader reader, String dsetName, String typeText)
+  {
+    if (typeText.equals("int32"))
+    {
+      int[] ints = reader.int32().readMDArray(dsetName).getAsFlatArray();
+      warnIfInt32LosesPrecision(ints, dsetName);
+      return int32ToFloat(ints);
+    }
+    long[] longs = reader.int64().readMDArray(dsetName).getAsFlatArray();
+    if (longLosesPrecision(longs))
+      IJ.log("Warning: '" + dsetName + "' has " + typeText + " values beyond +-2^24, "
+             + "which cannot be represented exactly as 32-bit floats");
+    return longToFloat(longs);
   }
 
   //-----------------------------------------------------------------------------
