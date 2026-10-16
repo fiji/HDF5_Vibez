@@ -113,6 +113,13 @@
 			<id>scijava.public</id>
 			<url>https://maven.scijava.org/content/groups/public</url>
 		</repository>
+		<!-- org.bytedeco snapshots (javacpp, hdf5) needed by janelia-jhdf5 until they are released. -->
+		<repository>
+			<id>central-portal-snapshots</id>
+			<url>https://central.sonatype.com/repository/maven-snapshots/</url>
+			<releases><enabled>false</enabled></releases>
+			<snapshots><enabled>true</enabled></snapshots>
+		</repository>
 	</repositories>
 
 	<dependencies>
