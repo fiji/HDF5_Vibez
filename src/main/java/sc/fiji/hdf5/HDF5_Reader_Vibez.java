@@ -56,6 +56,7 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
   private String fullFileName_;
 //  private JCheckBox loadAsHyperstackCheckBox_;
   private JCheckBox useVirtualStack_;
+  private JCheckBox uint8x3AsVolume_;
   private JRadioButton[] loadAsRadioButtons_;
   private int loadAsMode_;
 
@@ -261,6 +262,15 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     useVirtualStack_ = new JCheckBox("Use HDF5-backed virtual stacks", false);
     add(useVirtualStack_, cs);
 
+    cs.gridy = ++currentRow;
+    cs.gridwidth = 2;
+    uint8x3AsVolume_ = new JCheckBox("uint8 datasets ending in 3 are volumes, not RGB",
+        Prefs.get("hdf5readervibez.uint8x3asvolume", false));
+    uint8x3AsVolume_.setToolTipText("<html>A uint8 dataset with dimensions such as 100x200x3 is loaded as an RGB image.<br>"
+        + "Check this to load it as a 3-D volume instead (z, y, x).</html>");
+    add(uint8x3AsVolume_, cs);
+    cs.gridwidth = 1;
+
     cs.fill = GridBagConstraints.HORIZONTAL;
     cs.ipady = 0;
     cs.weightx = 0;
@@ -385,6 +395,9 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
       if( loadAsRadioButtons_[i].isSelected()) loadAsMode = i;
     }
     Prefs.set("hdf5readervibez.loadasmode", loadAsMode);
+    Prefs.set("hdf5readervibez.uint8x3asvolume", uint8x3AsVolume_.isSelected());
+    final HDF5ImageJ.ColorInterpretation colorInterpretation = uint8x3AsVolume_.isSelected()
+        ? HDF5ImageJ.ColorInterpretation.VOLUME : HDF5ImageJ.ColorInterpretation.RGB;
 
     if (loadAsMode == 0)
     {
@@ -396,10 +409,10 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
         dsetNames[0] = dataSets_.get(i).path;
         String type = dataSets_.get(i).typeText;
         if (useVirtualStack_.isSelected()){
-          HDF5ImageJ.loadDataSetsToVirtualStack( fullFileName_, dsetNames);
+          HDF5ImageJ.loadDataSetsToVirtualStack( fullFileName_, dsetNames, true, colorInterpretation);
         } else
         {
-          HDF5ImageJ.loadDataSetsToHyperStack(fullFileName_, dsetNames, 1, 1);
+          HDF5ImageJ.loadDataSetsToHyperStack(fullFileName_, dsetNames, 1, 1, true, colorInterpretation);
         }
       }
     }
@@ -454,11 +467,11 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
       String type = dataSets_.get(selection[0]).typeText;
       if (useVirtualStack_.isSelected())
       {
-        HDF5ImageJ.loadDataSetsToVirtualStack( fullFileName_, dsetNames);
+        HDF5ImageJ.loadDataSetsToVirtualStack( fullFileName_, dsetNames, true, colorInterpretation);
       } else
       {
         HDF5ImageJ.loadDataSetsToHyperStack( fullFileName_, dsetNames,
-            nFrames, nChannels);
+            nFrames, nChannels, true, colorInterpretation);
       }
 
     }
