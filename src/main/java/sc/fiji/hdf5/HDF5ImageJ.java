@@ -166,6 +166,7 @@ public class HDF5ImageJ
           String element_size_um_text = "unknown";
           try {
             float[] element_size_um = reader.float32().getArrayAttr(info.getPath(), "element_size_um");
+            element_size_um = normalizeElementSizeUm(element_size_um);
             element_size_um_text = "" + element_size_um[0] + "x"
                     + element_size_um[1] + "x" + element_size_um[2];
 
@@ -337,10 +338,7 @@ public class HDF5ImageJ
           float[] element_size_um = {1,1,1};
           try {
             element_size_um = reader.float32().getArrayAttr(dsetName, "element_size_um");
-            // prepend 1 to 2-D element sizes
-            if (element_size_um.length == 2)
-                element_size_um = new float[] {
-                    1, element_size_um[0], element_size_um[1] };
+            element_size_um = normalizeElementSizeUm(element_size_um);
           }
           catch (HDF5Exception err) {
             IJ.log("Warning: Can't read attribute 'element_size_um' from file '" + filename
@@ -661,10 +659,7 @@ public class HDF5ImageJ
       float[] element_size_um = {1,1,1};
       try {
         element_size_um = reader.float32().getArrayAttr(dsetName, "element_size_um");
-        // prepend 1 to 2-D element sizes
-        if (element_size_um.length == 2)
-            element_size_um = new float[] {
-                1, element_size_um[0], element_size_um[1] };
+        element_size_um = normalizeElementSizeUm(element_size_um);
       }
       catch (HDF5Exception err) {
         IJ.log("Warning: Can't read attribute 'element_size_um' from file '" + filename
@@ -1321,6 +1316,17 @@ public class HDF5ImageJ
   }
 
   //---------------------------------------------------------------------------
+  /**
+   * Some writers store 2-D element sizes as (y, x). Prepend a z size of 1 so
+   * callers can always index [z, y, x].
+   */
+  static float[] normalizeElementSizeUm(float[] elementSizeUm) {
+    if (elementSizeUm.length == 2)
+      return new float[] { 1, elementSizeUm[0], elementSizeUm[1] };
+    return elementSizeUm;
+  }
+
+  //---------------------------------------------------------------------------
   public static float[] getElementSizeUm(ImagePlus imp) {
     Calibration cal = imp.getCalibration();
     float factor = 1;
@@ -1343,17 +1349,14 @@ public class HDF5ImageJ
       factor = 0.001f;
     break;
     case "pm":
-    case "pikometer":
+    case "picometer":
       factor = 0.000001f;
     break;
     }
-    if (imp.getNSlices() == 1)
-        return new float[] {
-            (float)cal.pixelHeight * factor, (float)cal.pixelWidth * factor };
-    else
-        return new float[] {
-            (float)cal.pixelDepth * factor, (float)cal.pixelHeight * factor,
-            (float)cal.pixelWidth * factor };
+    // always three values (z, y, x), whatever the stack size, so readers can rely on the layout
+    return new float[] {
+        (float)cal.pixelDepth * factor, (float)cal.pixelHeight * factor,
+        (float)cal.pixelWidth * factor };
   }
 
 }
