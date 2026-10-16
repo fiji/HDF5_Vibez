@@ -157,6 +157,21 @@ public class HDF5ImageJ
     }
   }
 
+  /**
+   * Reads some of the slices of a stack, such as {@code "10-20-2"} (see {@link SliceRange}), so that
+   * only those planes are held in memory.
+   */
+  public static ImagePlus hdf5readSlices( String filename, String datasetname, String slices)
+  {
+    return loadSlices( filename, datasetname, null, slices, ColorInterpretation.RGB, false);
+  }
+
+  /** As {@link #hdf5readSlices(String, String, String)}, for a dataset with a custom layout (z, y and x only). */
+  public static ImagePlus hdf5readSlices( String filename, String datasetname, String layout, String slices)
+  {
+    return loadSlices( filename, datasetname, layout, slices, ColorInterpretation.RGB, false);
+  }
+
   public static ArrayList<DataSetInfo> hdf5list( String filename)
   {
     IHDF5Reader reader = HDF5Factory.openForReading(filename);
@@ -1409,6 +1424,63 @@ public class HDF5ImageJ
       }
     }
     return nameList;
+  }
+
+  //-----------------------------------------------------------------------------
+  /**
+   * Loads only the slices selected by {@code spec} (see {@link SliceRange}) of a stack into memory.
+   * The planes are read one at a time through a virtual stack, so a dataset that is too large to
+   * load can still be sampled. The z spacing is multiplied by the step if the slices are evenly spaced.
+   *
+   * @param layout the layout of the dataset ({@code x}, {@code y} and {@code z} only), or
+   *               {@code null} for the usual z, y, x or RGB reading
+   * @return the image, or {@code null} (after reporting an error) if the slices cannot be loaded
+   */
+  static ImagePlus loadSlices( String filename, String dsetName, String layout, String spec,
+                               ColorInterpretation colorInterpretation, boolean show)
+  {
+    ImagePlus source = layout == null
+        ? loadDataSetsToVirtualStack( filename, new String[] {dsetName}, false, colorInterpretation)
+        : loadCustomLayoutDataSetToVirtualStack( filename, dsetName, layout, false);
+    if (source == null) return null;
+
+    int[] slices;
+    try
+    {
+      slices = SliceRange.parse( spec, source.getStackSize());
+    }
+    catch (IllegalArgumentException err)
+    {
+      IJ.error( dsetName + ": " + err.getMessage());
+      return null;
+    }
+    if (slices.length == 0)
+    {
+      IJ.error( dsetName + ": no slices selected by '" + spec + "'");
+      return null;
+    }
+
+    ImageStack stack = new ImageStack( source.getWidth(), source.getHeight());
+    for (int slice : slices)
+      stack.addSlice( "slice " + slice, source.getStack().getProcessor( slice));
+    ImagePlus imp = new ImagePlus( source.getTitle() + " [" + spec.trim() + "]", stack);
+    imp.setCalibration( source.getCalibration().copy());
+    if (slices.length > 1)
+    {
+      int spacing = slices[1] - slices[0];
+      boolean even = spacing > 0;
+      for (int i = 2; even && i < slices.length; i++)
+        even = slices[i] - slices[i - 1] == spacing;
+      if (even) imp.getCalibration().pixelDepth *= spacing;
+    }
+    imp.resetDisplayRange();
+    if (show) {
+      try {
+        imp.show();
+      }
+      catch (HeadlessException herr) {}
+    }
+    return imp;
   }
 
   //-----------------------------------------------------------------------------

@@ -57,6 +57,7 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
 //  private JCheckBox loadAsHyperstackCheckBox_;
   private JCheckBox useVirtualStack_;
   private JComboBox<String> lastDim3_;
+  private JTextField slices_;
   private JRadioButton[] loadAsRadioButtons_;
   private int loadAsMode_;
 
@@ -273,6 +274,16 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     cs.gridx = 1;
     add(lastDim3_, cs);
     cs.gridx = 0;
+
+    cs.gridy = ++currentRow;
+    slices_ = new JTextField("", 12);
+    slices_.setToolTipText("<html>Load only some slices of a stack: 5, 10-20, 10-20-3 (every third), 10- , %3 (every third),<br>"
+        + "or a list such as 1,5,10-12. Empty loads all slices. Only for \"individual stacks\" and custom layouts;<br>"
+        + "the virtual stack option is ignored when slices are given.</html>");
+    add(new JLabel("Slices (empty: all):"), cs);
+    cs.gridx = 1;
+    add(slices_, cs);
+    cs.gridx = 0;
     cs.gridwidth = 1;
 
     cs.fill = GridBagConstraints.HORIZONTAL;
@@ -402,6 +413,9 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
     Prefs.set("hdf5readervibez.lastdim3", lastDim3_.getSelectedIndex());
     final HDF5ImageJ.ColorInterpretation colorInterpretation =
         HDF5ImageJ.ColorInterpretation.values()[lastDim3_.getSelectedIndex()];
+    final String slices = slices_.getText();
+    if (SliceRange.isGiven(slices) && loadAsMode > 1)
+      IJ.log("Warning: slices '" + slices.trim() + "' are only used for individual stacks and custom layouts; loading all slices");
 
     if (loadAsMode == 0)
     {
@@ -412,7 +426,9 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
         String[] dsetNames = new String[1];
         dsetNames[0] = dataSets_.get(i).path;
         String type = dataSets_.get(i).typeText;
-        if (useVirtualStack_.isSelected()){
+        if (SliceRange.isGiven(slices)) {
+          HDF5ImageJ.loadSlices( fullFileName_, dsetNames[0], null, slices, colorInterpretation, true);
+        } else if (useVirtualStack_.isSelected()){
           HDF5ImageJ.loadDataSetsToVirtualStack( fullFileName_, dsetNames, true, colorInterpretation);
         } else
         {
@@ -429,7 +445,10 @@ public class HDF5_Reader_Vibez extends JFrame  implements PlugIn, ActionListener
         String dsetLayout =  dsetLayoutTextField_.getText();
         Prefs.set("hdf5readervibez.dsetLayout", dsetLayout);
 
-        if (useVirtualStack_.isSelected())
+        if (SliceRange.isGiven(slices))
+        {
+          HDF5ImageJ.loadSlices(fullFileName_, dataSets_.get(i).path, dsetLayout, slices, colorInterpretation, true);
+        } else if (useVirtualStack_.isSelected())
         {
           HDF5ImageJ.loadCustomLayoutDataSetToVirtualStack(fullFileName_, dataSets_.get(i).path, dsetLayout);
         } else

@@ -27,6 +27,7 @@
 
 package sc.fiji.hdf5;
 
+import ij.IJ;
 import ij.plugin.*;
 import ij.gui.GenericDialog;
 import ij.io.OpenDialog;
@@ -53,6 +54,7 @@ public class HDF5_Simple_Reader implements PlugIn
     gd.addChoice( "last_dimension_of_3", HDF5ImageJ.LAST_DIM_3_CHOICES,
                   HDF5ImageJ.LAST_DIM_3_CHOICES[Math.max(0, Math.min(HDF5ImageJ.LAST_DIM_3_CHOICES.length - 1,
                       (int) Prefs.get("hdf5readervibez.lastdim3", 0)))]);
+    gd.addStringField( "slices", "", 12);
     gd.showDialog();
     if (gd.wasCanceled()) return;
 
@@ -61,6 +63,19 @@ public class HDF5_Simple_Reader implements PlugIn
     int nchannels = (int)(gd.getNextNumber());
     int lastDim3 = gd.getNextChoiceIndex();
     Prefs.set("hdf5readervibez.lastdim3", lastDim3);
+    String slices = gd.getNextString();
+
+    String[] names = datasetnames.split(",");
+    if (SliceRange.isGiven(slices)) {
+      // only some slices of one dataset
+      if (names.length != 1) {
+        IJ.error("Slices can only be selected for a single data set");
+        return;
+      }
+      HDF5ImageJ.loadSlices( filename, names[0].trim(), null, slices,
+                             HDF5ImageJ.ColorInterpretation.values()[lastDim3], true);
+      return;
+    }
 
     HDF5ImageJ.loadDataSetsToHyperStack( filename,
                                          datasetnames.split(","),
