@@ -54,6 +54,19 @@ import java.util.List;
 
 public class HDF5ImageJ
 {
+  /**
+   * How to read a 3-D {@code uint8} dataset whose last dimension is 3. {@code [y, x, 3]} is an RGB
+   * image, but {@code [z, y, 3]} is a volume that happens to be 3 pixels wide; the file does not
+   * say which. This does not apply to other datasets, which are never RGB when rank 3.
+   */
+  public enum ColorInterpretation
+  {
+    /** An RGB image: the last dimension holds the red, green and blue samples (the default). */
+    RGB,
+    /** A 3-D volume of z, y, x. */
+    VOLUME
+  }
+
   //-----------------------------------------------------------------------------
   public static ImagePlus hdf5read( String filename, String datasetname)
   {
@@ -65,6 +78,12 @@ public class HDF5ImageJ
   public static ImagePlus hdf5read( String filename, String[] datasets, int nFrames, int nChannels)
   {
     return loadDataSetsToHyperStack( filename, datasets, nFrames, nChannels, false);
+  }
+
+  public static ImagePlus hdf5read( String filename, String[] datasets, int nFrames, int nChannels,
+                                    ColorInterpretation colorInterpretation)
+  {
+    return loadDataSetsToHyperStack( filename, datasets, nFrames, nChannels, false, colorInterpretation);
   }
 
   public static ImagePlus hdf5read( String filename, String datasetname, String layout)
@@ -212,6 +231,12 @@ public class HDF5ImageJ
 
   static ImagePlus loadDataSetsToVirtualStack(String filename, String[] dsetNames, boolean show)
   {
+    return loadDataSetsToVirtualStack(filename, dsetNames, show, ColorInterpretation.RGB);
+  }
+
+  static ImagePlus loadDataSetsToVirtualStack(String filename, String[] dsetNames, boolean show,
+                                              ColorInterpretation colorInterpretation)
+  {
     String dsetName = "";
     IHDF5Reader reader = null;
     try
@@ -259,7 +284,7 @@ public class HDF5ImageJ
         nLevels = (int) dsInfo.getDimensions()[0];
         nRows = (int) dsInfo.getDimensions()[1];
         nCols = (int) dsInfo.getDimensions()[2];
-        if (typeText.equals("uint8") && nCols == 3)
+        if (typeText.equals("uint8") && nCols == 3 && colorInterpretation == ColorInterpretation.RGB)
         {
           nLevels = 1;
           nRows = (int) dsInfo.getDimensions()[0];
@@ -325,6 +350,14 @@ public class HDF5ImageJ
    static ImagePlus loadDataSetsToHyperStack( String filename, String[] dsetNames,
                                             int nFrames, int nChannels, boolean show)
   {
+    return loadDataSetsToHyperStack( filename, dsetNames, nFrames, nChannels, show,
+                                     ColorInterpretation.RGB);
+  }
+
+  static ImagePlus loadDataSetsToHyperStack( String filename, String[] dsetNames,
+                                             int nFrames, int nChannels, boolean show,
+                                             ColorInterpretation colorInterpretation)
+  {
     String dsetName = "";
     IHDF5Reader reader = null;
     try
@@ -375,7 +408,7 @@ public class HDF5ImageJ
               nLevels = (int)dsInfo.getDimensions()[0];
               nRows   = (int)dsInfo.getDimensions()[1];
               nCols   = (int)dsInfo.getDimensions()[2];
-              if( typeText.equals( "uint8") && nCols == 3)
+              if( typeText.equals( "uint8") && nCols == 3 && colorInterpretation == ColorInterpretation.RGB)
               {
                 nLevels = 1;
                 nRows = (int)dsInfo.getDimensions()[0];

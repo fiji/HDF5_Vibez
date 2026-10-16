@@ -49,17 +49,24 @@ public class HDF5_Simple_Reader implements PlugIn
     gd.addNumericField( "nframes", nFrames, 0);
     int nChannels = (int)Prefs.get("hdf5readervibez.nchannels", 1);
     gd.addNumericField( "nchannels", nChannels, 0);
+    // worded so that an unchecked (or absent, in an older macro) box keeps the default of RGB
+    gd.addCheckbox( "uint8_ending_in_3_is_volume", Prefs.get("hdf5readervibez.uint8x3asvolume", false));
     gd.showDialog();
     if (gd.wasCanceled()) return;
 
     String datasetnames = gd.getNextString();
     int nframes =  (int)(gd.getNextNumber());
     int nchannels = (int)(gd.getNextNumber());
+    boolean uint8x3AsVolume = gd.getNextBoolean();
+    Prefs.set("hdf5readervibez.uint8x3asvolume", uint8x3AsVolume);
 
-    HDF5ImageJ.loadDataSetsToHyperStack( filename, 
+    HDF5ImageJ.loadDataSetsToHyperStack( filename,
                                          datasetnames.split(","),
                                          nframes,
-                                         nchannels);
+                                         nchannels,
+                                         true,
+                                         uint8x3AsVolume ? HDF5ImageJ.ColorInterpretation.VOLUME
+                                                         : HDF5ImageJ.ColorInterpretation.RGB);
     
   }
 }
