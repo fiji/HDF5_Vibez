@@ -135,4 +135,19 @@ public class HDF5Int32Test
     final ImagePlus imp = HDF5ImageJ.hdf5read(file, "/plane");
     assertEquals((float) (1 << 24), ((FloatProcessor) imp.getProcessor()).getf(0), 0f);
   }
+
+  @Test
+  public void precisionCheck()
+  {
+    assertEquals(false, HDF5ImageJ.int32LosesPrecision(new int[] {0, 1 << 24, -(1 << 24), 5}));
+    assertEquals(true, HDF5ImageJ.int32LosesPrecision(new int[] {0, (1 << 24) + 1}));
+    assertEquals(true, HDF5ImageJ.int32LosesPrecision(new int[] {-(1 << 24) - 1}));
+    assertEquals(true, HDF5ImageJ.int32LosesPrecision(new int[] {Integer.MIN_VALUE}));
+  }
+
+  @Test
+  public void int32ToFloatConverts()
+  {
+    assertArrayEquals(new float[] {-3f, 0f, 70000f}, HDF5ImageJ.int32ToFloat(new int[] {-3, 0, 70000}), 0f);
+  }
 }

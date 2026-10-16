@@ -213,11 +213,12 @@ public class HDF5ImageJ
   static ImagePlus loadDataSetsToVirtualStack(String filename, String[] dsetNames, boolean show)
   {
     String dsetName = "";
+    IHDF5Reader reader = null;
     try
     {
       IHDF5ReaderConfigurator conf = HDF5Factory.configureForReading(filename);
       conf.performNumericConversions();
-      IHDF5Reader reader = conf.reader();
+      reader = conf.reader();
       ImagePlus imp = null;
       int rank = 0;
       int nLevels = 0;
@@ -278,7 +279,7 @@ public class HDF5ImageJ
       }
       typeText = dsInfoToTypeString(dsInfo);
 
-      ImageStack stack = new HDF5VirtualStack(reader, dsetName, nRows, nCols, nLevels, isRGB, typeText);
+      ImageStack stack = new HDF5VirtualStack(filename, dsetName, nRows, nCols, nLevels, isRGB, typeText);
 
       imp = new ImagePlus(filename + ": " + dsetName, stack);
       imp.getCalibration().pixelDepth = element_size_um[0];
@@ -311,6 +312,10 @@ public class HDF5ImageJ
       IJ.log(Arrays.toString(o.getStackTrace()));
       IJ.outOfMemory("Load HDF5");
     }
+    finally
+    {
+      if (reader != null) reader.close();
+    }
     return null;
 
   }
@@ -321,11 +326,12 @@ public class HDF5ImageJ
                                             int nFrames, int nChannels, boolean show)
   {
     String dsetName = "";
+    IHDF5Reader reader = null;
     try
     {
       IHDF5ReaderConfigurator conf = HDF5Factory.configureForReading(filename);
       conf.performNumericConversions();
-      IHDF5Reader reader = conf.reader();
+      reader = conf.reader();
       ImagePlus imp = null;
       int rank      = 0;
       int nLevels   = 0;
@@ -343,6 +349,7 @@ public class HDF5ImageJ
           IJ.showStatus( "Loading " + dsetName);
           IJ.showProgress( frame*nChannels+channel+1, nFrames*nChannels);
           HDF5DataSetInformation dsInfo = reader.object().getDataSetInformation(dsetName);
+          if (tooBigForMemory(dsInfo, dsetName)) return null;
           float[] element_size_um = {1,1,1};
           try {
             element_size_um = reader.float32().getArrayAttr(dsetName, "element_size_um");
@@ -473,6 +480,7 @@ public class HDF5ImageJ
             }
           } else if (typeText.equals( "int32")) {
             int[] rawdata_asflat = reader.int32().readMDArray(dsetName).getAsFlatArray();
+            warnIfInt32LosesPrecision(rawdata_asflat, dsetName);
             float[] rawdata_asfloat = new float[rawdata_asflat.length];
             for (int i = 0; i < rawdata_asfloat.length; i++)
             {
@@ -533,6 +541,10 @@ public class HDF5ImageJ
     {
       IJ.outOfMemory("Load HDF5");
     }
+    finally
+    {
+      if (reader != null) reader.close();
+    }
     return null;
 
   }
@@ -545,11 +557,12 @@ public class HDF5ImageJ
 
   static ImagePlus loadCustomLayoutDataSetToVirtualStack(String filename, String dsetName, String layout, boolean show)
   {
+    IHDF5Reader reader = null;
     try
     {
       IHDF5ReaderConfigurator conf = HDF5Factory.configureForReading(filename);
       conf.performNumericConversions();
-      IHDF5Reader reader = conf.reader();
+      reader = conf.reader();
       ImagePlus imp = null;
 
       // get datat set info and check layout string
@@ -601,7 +614,7 @@ public class HDF5ImageJ
 
       boolean isRGB = false;
       nBits = assignHDF5TypeToImagePlusBitdepth( typeText, isRGB);
-      ImageStack stack = new CustomLayoutHDF5VirtualStack(reader, dsetName, nRows, nCols, nLevels, typeText, layout);
+      ImageStack stack = new CustomLayoutHDF5VirtualStack(filename, dsetName, nRows, nCols, nLevels, typeText, layout);
 
       imp = new ImagePlus(filename + ": " + dsetName, stack);
 
@@ -634,6 +647,10 @@ public class HDF5ImageJ
       IJ.log(Arrays.toString(o.getStackTrace()));
       IJ.outOfMemory("Load HDF5");
     }
+    finally
+    {
+      if (reader != null) reader.close();
+    }
     return null;
 
   }
@@ -648,11 +665,12 @@ public class HDF5ImageJ
   // Layout: any order of the letters x,y,z,c,t as string, e.g. "zyx" for a standard volumetric data set
   //
   static ImagePlus loadCustomLayoutDataSetToHyperStack( String filename, String dsetName, String layout, boolean show) {
+    IHDF5Reader reader = null;
     try
     {
       IHDF5ReaderConfigurator conf = HDF5Factory.configureForReading(filename);
       conf.performNumericConversions();
-      IHDF5Reader reader = conf.reader();
+      reader = conf.reader();
       ImagePlus imp = null;
 
       // get datat set info and check layout string
@@ -674,6 +692,7 @@ public class HDF5ImageJ
 
       int rank = dsInfo.getRank();
       String typeText = dsInfoToTypeString(dsInfo);
+      if (tooBigForMemory(dsInfo, dsetName)) return null;
 
       if( rank != layout.length()) {
         IJ.error( dsetName + ": rank " + rank + " is incompatible with your given layout string '" + layout +"' (rank " + layout.length() + ")");
@@ -853,6 +872,7 @@ public class HDF5ImageJ
       }
       else if (typeText.equals("int32")) {
         int[] rawdata_ints = reader.int32().readMDArray(dsetName).getAsFlatArray();
+        warnIfInt32LosesPrecision(rawdata_ints, dsetName);
         float[] rawdata = new float[rawdata_ints.length];
         for (int i = 0; i < rawdata_ints.length; i++)
         {
@@ -993,6 +1013,10 @@ public class HDF5ImageJ
     catch (OutOfMemoryError o)
     {
       IJ.outOfMemory("Load HDF5");
+    }
+    finally
+    {
+      if (reader != null) reader.close();
     }
     return null;
 
@@ -1317,6 +1341,49 @@ public class HDF5ImageJ
       }
     }
     return nameList;
+  }
+
+  //-----------------------------------------------------------------------------
+  /** Largest magnitude below which every int can be stored exactly in a 32-bit float. */
+  static final int MAX_EXACT_FLOAT_INT = 1 << 24;
+
+  static boolean int32LosesPrecision(int[] values)
+  {
+    for (int v : values)
+      if (v > MAX_EXACT_FLOAT_INT || v < -MAX_EXACT_FLOAT_INT) return true;
+    return false;
+  }
+
+  static void warnIfInt32LosesPrecision(int[] values, String dsetName)
+  {
+    if (int32LosesPrecision(values))
+      IJ.log("Warning: '" + dsetName + "' has int32 values beyond +-2^24, "
+             + "which cannot be represented exactly as 32-bit floats");
+  }
+
+  static float[] int32ToFloat(int[] values)
+  {
+    float[] floats = new float[values.length];
+    for (int i = 0; i < values.length; i++)
+      floats[i] = values[i];
+    return floats;
+  }
+
+  //-----------------------------------------------------------------------------
+  /**
+   * The in-memory loaders put a whole dataset in one Java array, which holds at most
+   * 2^31 - 1 elements. Report that clearly, and point at virtual stacks, instead of failing
+   * with an overflow or an obscure error.
+   */
+  static boolean tooBigForMemory(HDF5DataSetInformation dsInfo, String dsetName)
+  {
+    long n = 1;
+    for (long d : dsInfo.getDimensions())
+      n *= d;
+    if (n <= Integer.MAX_VALUE - 8) return false;
+    IJ.error(dsetName + ": " + n + " elements is too large to load into memory. "
+             + "Use a virtual stack instead.");
+    return true;
   }
 
   //---------------------------------------------------------------------------

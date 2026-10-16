@@ -182,14 +182,89 @@ public class HDF5VirtualStackTest
     }
   }
 
+  /** Compares RGB slices, ignoring the alpha byte. */
+  private static void assertSameRgb(final ImagePlus expected, final ImagePlus actual)
+  {
+    assertNotNull(actual);
+    assertTrue(actual.getStack() instanceof VirtualStack);
+    assertEquals(ImagePlus.COLOR_RGB, actual.getType());
+    assertEquals(expected.getStackSize(), actual.getStackSize());
+    for (int i = 1; i <= expected.getStackSize(); i++)
+    {
+      final int[] e = (int[]) expected.getStack().getProcessor(i).getPixels();
+      final int[] a = (int[]) actual.getStack().getProcessor(i).getPixels();
+      assertEquals(e.length, a.length);
+      for (int j = 0; j < e.length; j++)
+        assertEquals("slice " + i + " pixel " + j, e[j] & 0xffffff, a[j] & 0xffffff);
+    }
+  }
+
   @Test
-  public void rgbIsNotSupportedYet()
+  public void rgbStack()
   {
     final IHDF5Writer w = open();
     w.uint8().writeMDArray("/d", new MDByteArray(bytes(Z * Y * X * 3), dims(Z, Y, X, 3)));
     w.close();
-    // ImagePlus reads the first slice on construction, so the loader reports the error and returns null
-    assertNull(HDF5ImageJ.loadDataSetsToVirtualStack(file().getAbsolutePath(), new String[] {"/d"}, false));
+    final String f = file().getAbsolutePath();
+    assertSameRgb(HDF5ImageJ.loadDataSetsToHyperStack(f, new String[] {"/d"}, 1, 1, false),
+        HDF5ImageJ.loadDataSetsToVirtualStack(f, new String[] {"/d"}, false));
+  }
+
+  @Test
+  public void rgbPlane()
+  {
+    final IHDF5Writer w = open();
+    w.uint8().writeMDArray("/d", new MDByteArray(bytes(Y * X * 3), dims(Y, X, 3)));
+    w.close();
+    final String f = file().getAbsolutePath();
+    assertSameRgb(HDF5ImageJ.loadDataSetsToHyperStack(f, new String[] {"/d"}, 1, 1, false),
+        HDF5ImageJ.loadDataSetsToVirtualStack(f, new String[] {"/d"}, false));
+  }
+
+  @Test
+  public void fileIsNotHeldOpenBetweenReads()
+  {
+    final IHDF5Writer w = open();
+    w.uint8().writeMDArray("/d", new MDByteArray(bytes(Z * Y * X), dims(Z, Y, X)));
+    w.close();
+    final ImagePlus imp = HDF5ImageJ.loadDataSetsToVirtualStack(file().getAbsolutePath(), new String[] {"/d"}, false);
+    imp.getStack().getProcessor(2);
+
+    // HDF5 refuses to open a file for writing while this process still has it open for reading
+    final IHDF5Writer again = HDF5Factory.open(file().getAbsolutePath());
+    again.uint8().writeMDArray("/other", new MDByteArray(bytes(4), dims(4)));
+    again.close();
+    assertEquals(Z, imp.getStackSize());
+    imp.getStack().getProcessor(3); // and the stack still works afterwards
+  }
+
+  /** More than 2^31 elements: cannot be one Java array, but each plane is small. */
+  @Test
+  public void datasetLargerThanAJavaArray()
+  {
+    final int planes = 1 << 20;
+    final int[] block = {1, 64, 64};
+    final IHDF5Writer w = open();
+    // chunked and unwritten, so the file stays tiny
+    w.uint8().createMDArray("/big", dims(planes, 64, 64), new int[] {1, 64, 64});
+    final byte[] last = bytes(64 * 64);
+    w.uint8().writeMDArrayBlockWithOffset("/big", new MDByteArray(last, dims(block[0], block[1], block[2])),
+        new long[] {planes - 1, 0, 0});
+    w.close();
+
+    final String f = file().getAbsolutePath();
+    assertNull("the in-memory loader reports that the dataset is too big",
+        HDF5ImageJ.loadDataSetsToHyperStack(f, new String[] {"/big"}, 1, 1, false));
+    assertNull(HDF5ImageJ.loadCustomLayoutDataSetToHyperStack(f, "/big", "zyx", false));
+
+    final ImagePlus virtual = HDF5ImageJ.loadDataSetsToVirtualStack(f, new String[] {"/big"}, false);
+    assertNotNull(virtual);
+    assertEquals(planes, virtual.getStackSize());
+    assertArrayEquals(last, (byte[]) virtual.getStack().getProcessor(planes).getPixels());
+    assertArrayEquals(new byte[64 * 64], (byte[]) virtual.getStack().getProcessor(1).getPixels());
+
+    final ImagePlus custom = HDF5ImageJ.loadCustomLayoutDataSetToVirtualStack(f, "/big", "zyx", false);
+    assertArrayEquals(last, (byte[]) custom.getStack().getProcessor(planes).getPixels());
   }
 
   // ---- custom layouts --------------------------------------------------------------------

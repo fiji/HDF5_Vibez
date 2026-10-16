@@ -13,11 +13,20 @@ public class CustomLayoutHDF5VirtualStack extends HDF5VirtualStack
   private final String layout;
   private final int[] extent;
 
-  public CustomLayoutHDF5VirtualStack(IHDF5Reader reader, String dsetName, int nRows, int nCols, int nLevels, String typeText, String layout)
+  public CustomLayoutHDF5VirtualStack(String filename, String dsetName, int nRows, int nCols, int nLevels, String typeText, String layout)
   {
-    super(reader, dsetName, nRows, nCols, nLevels, false, typeText);
+    super(filename, dsetName, nRows, nCols, nLevels, false, typeText);
     this.layout = layout;
-    final long[] dims = reader.object().getDataSetInformation(dsetName).getDimensions();
+    final IHDF5Reader reader = openReader();
+    final long[] dims;
+    try
+    {
+      dims = reader.object().getDataSetInformation(dsetName).getDimensions();
+    }
+    finally
+    {
+      reader.close();
+    }
     this.extent = new int[dims.length];
     for (int d = 0; d < dims.length; d++)
       extent[d] = (int) dims[d];
